@@ -2,7 +2,16 @@
 
 This repository contains an assortment of MIT-licensed AppleScript or JXA (JavaScript for Automation) scripts for various macOS applications.
 
-For further info about a certain script, please see the script's README file in the script's subdirectory.
+See below for a summary of the scripts contained in this repository, and how to use them. For further info about a certain script, please see the script's README file in the script's subdirectory.
+
+
+## List of scripts
+
+### Papers 3
+
+#### Papers to Bookends
+
+Exports all publications selected in your Papers 3 library to Bookends. The script will also transfer the publication's primary PDF (if there's any) and can also transfer the publication's rating, color label, flagged status, language, citekey, and "papers://..." link.
 
 
 ## FAQ
