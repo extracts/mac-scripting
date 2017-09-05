@@ -11,7 +11,7 @@ See below for a summary of the scripts contained in this repository, and how to 
 
 #### Papers to Bookends
 
-Exports all publications selected in your Papers 3 library to Bookends. The script will also transfer the publication's primary PDF (if there's any) and can also transfer the publication's rating, color label, flagged status, language, citekey, and "papers://..." link.
+Exports all publications selected in your Papers 3 library to Bookends. The script will also transfer the publication's primary PDF (if there's any) and can also transfer the publication's rating, color label, flagged status, language, citekey, and "papers://..." link. [[More Info](https://github.com/extracts/mac-scripting/tree/master/Papers3/Papers_To_Bookends)] [[Download](https://github.com/extracts/mac-scripting/raw/master/Papers3/Papers_To_Bookends/Papers_To_Bookends.app.zip)]
 
 
 ## FAQ
