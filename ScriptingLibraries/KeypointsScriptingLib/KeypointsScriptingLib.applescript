@@ -1,5 +1,5 @@
 -- Keypoints Scripting Lib
--- version 1.0
+-- version 1.0, licensed under the MIT license
 
 -- by Matthias Steffens, keypointsapp.net, mat(at)extracts(dot)de
 
@@ -518,3 +518,12 @@ on updateProgress(completedSteps, progressSubtitle)
 	set progress additional description to progressSubtitle
 	set progress completed steps to completedSteps
 end updateProgress
+
+-- Writes the given message to the system's console log.
+-- @param loggerName The name of the logging script or process (which will be printed in front of the log message)
+-- @param logMessage The log message which shall be written to the system's console log
+on logToSystemConsole(loggerName, logMessage)
+	if logMessage is missing value or logMessage is "" then return
+	set loggerName to "AppleScript: " & loggerName
+	do shell script "logger -t \"" & loggerName & "\" " & quoted form of logMessage
+end logToSystemConsole
