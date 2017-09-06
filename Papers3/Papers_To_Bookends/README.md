@@ -43,7 +43,7 @@ Upon completion, Bookends will display a modal dialog reporting how many publica
 
 ## Requirements
 
-This script requires macOS 10.10 (Yosemite) or greater, the [KeypointsScriptingLib](https://github.com/extracts/mac-scripting/tree/master/ScriptingLibraries/KeypointsScriptingLib) v1.0 or greater, [Papers 3](http://papersapp.com/mac), and [Bookends](http://www.sonnysoftware.com/) 12.5.5 or greater.
+This script requires macOS 10.10 (Yosemite) or greater, the [KeypointsScriptingLib](https://github.com/extracts/mac-scripting/tree/master/ScriptingLibraries/KeypointsScriptingLib) v1.0 or greater, [Papers](http://papersapp.com/mac) 3.4.2 or greater, and [Bookends](http://www.sonnysoftware.com/) 12.5.5 or greater.
 
 
 ## Credits
