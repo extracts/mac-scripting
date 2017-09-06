@@ -60,6 +60,12 @@ For more info, please see [MIT license](https://github.com/extracts/mac-scriptin
 
 ## Release Notes
 
+### v1.1
+
+* For the RIS type `BOOK`, the script now converts the `BT` tag in the RIS record to `TI` so that Bookends 12.8.3 and earlier correctly recognizes the book's title.
+* Import errors are now logged to the system's console log.
+* The script now also transfers the publication's edition (if defined).
+
 ### v1.0
 
 Initial release.
