@@ -8,6 +8,7 @@ Besides the common publication metadata (supported by the RIS format), this expo
 * color label
 * flagged status
 * language
+* edition
 * citekey
 * "papers://…" link
 

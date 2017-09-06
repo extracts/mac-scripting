@@ -6,7 +6,7 @@
 -- Exports all publications selected in your Papers 3 library (incl. its primary PDFs) to Bookends.
 
 -- This script requires macOS 10.10 (Yosemite) or greater, the KeypointsScriptingLib v1.0 or
--- greater, Papers 3, and Bookends 12.5.5 or greater.
+-- greater, Papers 3.4.2 or greater, and Bookends 12.5.5 or greater.
 
 -- Besides the common publication metadata (supported by the RIS format), this export script will
 -- also transfer the following publication properties (if not disabled below):
@@ -14,6 +14,7 @@
 -- * color label
 -- * flagged status
 -- * language
+-- * edition
 -- * citekey
 -- * "papers://…" link
 -- For the color label and flagged status, the script will add special keywords to the corresponding
@@ -270,6 +271,12 @@ on exportToBookends(pubList, risRecordList)
 				set language to KeypointsLib's regexMatch(pubJSON, "(?<=" & linefeed & "  \"language\": \").+(?=\")")
 				if language is not missing value and language is not "" then
 					tell application "Bookends" to «event PPRSSFLD» bookendsImportID given «class FLDN»:"user7", string:language
+				end if
+				
+				-- set edition
+				set edition to KeypointsLib's regexMatch(pubJSON, "(?<=" & linefeed & "  \"version\": \").+(?=\")")
+				if edition is not missing value and edition is not "" then
+					tell application "Bookends" to «event PPRSSFLD» bookendsImportID given «class FLDN»:"user2", string:edition
 				end if
 				
 				if pubType is "Journal Article" then -- set PMID & PMCID
