@@ -1,12 +1,12 @@
 -- Papers to Bookends
--- version 1.0
+-- version 1.1, licensed under the MIT license
 
 -- by Matthias Steffens, keypointsapp.net, mat(at)extracts(dot)de
 
 -- Exports all publications selected in your Papers 3 library (incl. its primary PDFs) to Bookends.
 
 -- This script requires macOS 10.10 (Yosemite) or greater, the KeypointsScriptingLib v1.0 or
--- greater, and Bookends 12.5.5 or greater.
+-- greater, Papers 3, and Bookends 12.5.5 or greater.
 
 -- Besides the common publication metadata (supported by the RIS format), this export script will
 -- also transfer the following publication properties (if not disabled below):
@@ -16,7 +16,18 @@
 -- * language
 -- * citekey
 -- * "papers://…" link
--- For journal articles, this script will also transfer the publication's PMID and PMCID (if defined).
+-- For the color label and flagged status, the script will add special keywords to the corresponding
+-- Bookends publication (these keywords can be customized below).
+-- For journal articles, the script will also transfer the publication's PMID and PMCID (if defined).
+
+-- NOTE: Before executing the app, make sure that your Papers and Bookends apps are running,
+-- and that you've selected all publications in your Papers library that you'd like to export to
+-- Bookends. Then run the script to start the export process.
+
+-- NOTE: Upon completion, Bookends will display a modal dialog reporting how many publications
+-- (and PDFs) were imported. If the reported number of imported publications is less than the
+-- number of publications selected in your Papers library, you may want to open Console.app and
+-- checkout your system's console log for any errors reported by the script.
 
 -- NOTE: Due to a Papers scripting bug, the PDFs exported via this script won't include any
 -- annotations that you've added in Papers. However, the below workaround allows you to also
@@ -157,7 +168,7 @@ on exportToBookends(pubList, risRecordList)
 	repeat with i from 1 to pubCount
 		tell application id "com.mekentosj.papers3"
 			set aPub to item i of pubList
-			set pubIsJournalArticle to (resource type of aPub is "Journal Article")
+			set pubType to resource type of aPub
 			set pubName to title of aPub
 			KeypointsLib's updateProgress(i, "Importing publication " & i & " of " & pubCount & " (\"" & pubName & "\").")
 			
@@ -166,8 +177,14 @@ on exportToBookends(pubList, risRecordList)
 			-- remove file spec from RIS record since we provide our own file to Bookends below
 			set aRISRecord to KeypointsLib's regexReplace(aRISRecord, linefeed & "L1  - file://.+", "")
 			
+			-- for books, convert the BT tag in the RIS record to TI so that Bookends 12.8.3 and earlier correctly recognizes the book's title
+			set risType to KeypointsLib's regexMatch(aRISRecord, "(?<=^TY  - ).+")
+			if risType is "BOOK" then -- we check the type of the RIS record (instead of pubType) since this also catches eBooks etc
+				set aRISRecord to KeypointsLib's regexReplace(aRISRecord, "(?<=" & linefeed & ")BT(?=  - )", "TI")
+			end if
+			
 			-- remove any abbreviated journal name from RIS record since Bookends will autocomplete this using its Journal Glossary
-			if pubIsJournalArticle then
+			if pubType is "Journal Article" then
 				set pubHasFullJournalName to (KeypointsLib's regexMatch(aRISRecord, linefeed & "T2  - .+") is not "")
 				if pubHasFullJournalName then
 					set aRISRecord to KeypointsLib's regexReplace(aRISRecord, linefeed & "J2  - .+", "")
@@ -202,10 +219,16 @@ on exportToBookends(pubList, risRecordList)
 			set bookendsImportedPDF to ""
 			if bookendsImportInfo is not "" then
 				set bookendsImportID to KeypointsLib's regexMatch(bookendsImportInfo, "^\\d+(?=" & linefeed & ")")
-				if bookendsImportID is not "" then copy bookendsImportID to end of bookendsImportedIDs
+				if bookendsImportID is not "" then
+					copy bookendsImportID to end of bookendsImportedIDs
+				else
+					KeypointsLib's logToSystemConsole(name of me, "Couldn't properly import publication \"" & pubName & "\". Bookends info: " & bookendsImportInfo)
+				end if
 				
 				set bookendsImportedPDF to KeypointsLib's regexMatch(bookendsImportInfo, "(?<=\\d" & linefeed & ").+\\.pdf(?=$|" & linefeed & ")")
 				if bookendsImportedPDF is not "" then copy bookendsImportedPDF to end of bookendsImportedPDFs
+			else
+				KeypointsLib's logToSystemConsole(name of me, "Couldn't properly import publication \"" & pubName & "\".")
 			end if
 			
 			if bookendsImportID is not "" then
@@ -220,7 +243,7 @@ on exportToBookends(pubList, risRecordList)
 				if transferPapersLabel then -- set color label
 					set papersLabel to KeypointsLib's regexMatch(pubJSON, "(?<=" & linefeed & "  \"label\": ).+(?=,)")
 					if papersLabel > 0 then
-						-- TODO: setting the Bookends color label doesn't seem to work
+						-- TODO: set the Bookends color label directly (as of Bookends 12.8.3, this isn't supported yet)
 						--set bookendsLabel to my bookendsLabelForPapersLabel(papersLabel)
 						--tell application "Bookends" to «event PPRSSFLD» bookendsImportID given «class FLDN»:"colorlabel", string:bookendsLabel
 						
@@ -235,9 +258,6 @@ on exportToBookends(pubList, risRecordList)
 				if transferPapersFlags then -- set flagged
 					set isFlagged to flagged of aPub
 					if isFlagged then
-						-- TODO: setting the Bookends "Hit" field doesn't seem to work
-						--tell application "Bookends" to «event PPRSSFLD» bookendsImportID given «class FLDN»:"hit", string:1
-						
 						tell application "Bookends"
 							set tags to «event PPRSRFLD» bookendsImportID given string:"keywords"
 							if tags is not "" then set tags to tags & linefeed
@@ -252,7 +272,7 @@ on exportToBookends(pubList, risRecordList)
 					tell application "Bookends" to «event PPRSSFLD» bookendsImportID given «class FLDN»:"user7", string:language
 				end if
 				
-				if pubIsJournalArticle then -- set PMID & PMCID
+				if pubType is "Journal Article" then -- set PMID & PMCID
 					set aPMID to pmid of aPub
 					if aPMID is not missing value and aPMID is not "" then
 						tell application "Bookends" to «event PPRSSFLD» bookendsImportID given «class FLDN»:"user18", string:aPMID
@@ -282,8 +302,6 @@ on exportToBookends(pubList, risRecordList)
 					end if
 				end if
 			end if
-			
-			-- NOTE: it would be nice to select all imported records in Bookends but I'm not sure if/how this could be done
 		end tell
 	end repeat
 	
