@@ -60,6 +60,10 @@ For more info, please see [MIT license](https://github.com/extracts/mac-scriptin
 
 ## Release Notes
 
+### v1.2
+
+* Worked around a Papers issue where getting the `json string` property of a publication can cause a `-10000` error. Instead of aborting the import process, the script now logs an error message to the system's console log and proceeds with the import.
+
 ### v1.1
 
 * For the RIS type `BOOK`, the script now converts the `BT` tag in the RIS record to `TI` so that Bookends 12.8.3 and earlier correctly recognizes the book's title.

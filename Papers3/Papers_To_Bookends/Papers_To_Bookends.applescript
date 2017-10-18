@@ -1,5 +1,5 @@
 -- Papers to Bookends
--- version 1.1, licensed under the MIT license
+-- version 1.2, licensed under the MIT license
 
 -- by Matthias Steffens, keypointsapp.net, mat(at)extracts(dot)de
 
@@ -233,7 +233,14 @@ on exportToBookends(pubList, risRecordList)
 			end if
 			
 			if bookendsImportID is not "" then
-				set pubJSON to json string of aPub
+				try -- getting the json string may cause a -10000 error
+					set pubJSON to json string of aPub
+				on error errorText number errorNumber
+					if errorNumber is not -128 then
+						set pubJSON to missing value
+						KeypointsLib's logToSystemConsole(name of me, "Couldn't properly import color label, language and/or edition for publication \"" & pubName & "\"." & linefeed & "Error: " & errorText & " (" & errorNumber & ")")
+					end if
+				end try
 				
 				-- set rating
 				set rating to my rating of aPub
@@ -241,7 +248,7 @@ on exportToBookends(pubList, risRecordList)
 					tell application "Bookends" to «event PPRSSFLD» bookendsImportID given «class FLDN»:"rating", string:rating
 				end if
 				
-				if transferPapersLabel then -- set color label
+				if transferPapersLabel and pubJSON is not missing value then -- set color label
 					set papersLabel to KeypointsLib's regexMatch(pubJSON, "(?<=" & linefeed & "  \"label\": ).+(?=,)")
 					if papersLabel > 0 then
 						-- TODO: set the Bookends color label directly (as of Bookends 12.8.3, this isn't supported yet)
@@ -267,16 +274,18 @@ on exportToBookends(pubList, risRecordList)
 					end if
 				end if
 				
-				-- set language
-				set language to KeypointsLib's regexMatch(pubJSON, "(?<=" & linefeed & "  \"language\": \").+(?=\")")
-				if language is not missing value and language is not "" then
-					tell application "Bookends" to «event PPRSSFLD» bookendsImportID given «class FLDN»:"user7", string:language
+				if pubJSON is not missing value then -- set language
+					set language to KeypointsLib's regexMatch(pubJSON, "(?<=" & linefeed & "  \"language\": \").+(?=\")")
+					if language is not missing value and language is not "" then
+						tell application "Bookends" to «event PPRSSFLD» bookendsImportID given «class FLDN»:"user7", string:language
+					end if
 				end if
 				
-				-- set edition
-				set edition to KeypointsLib's regexMatch(pubJSON, "(?<=" & linefeed & "  \"version\": \").+(?=\")")
-				if edition is not missing value and edition is not "" then
-					tell application "Bookends" to «event PPRSSFLD» bookendsImportID given «class FLDN»:"user2", string:edition
+				if pubJSON is not missing value then -- set edition
+					set edition to KeypointsLib's regexMatch(pubJSON, "(?<=" & linefeed & "  \"version\": \").+(?=\")")
+					if edition is not missing value and edition is not "" then
+						tell application "Bookends" to «event PPRSSFLD» bookendsImportID given «class FLDN»:"user2", string:edition
+					end if
 				end if
 				
 				if pubType is "Journal Article" then -- set PMID & PMCID
