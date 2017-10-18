@@ -1,5 +1,5 @@
 -- Keypoints Scripting Lib
--- version 1.0, licensed under the MIT license
+-- version 1.1, licensed under the MIT license
 
 -- by Matthias Steffens, keypointsapp.net, mat(at)extracts(dot)de
 
@@ -21,6 +21,9 @@ use scripting additions
 -- @param someText The input string on which the search shall be performed
 -- @param searchPattern The search string as an ICU-compatible regular expression
 on regexMatch(someText, searchPattern)
+	if someText is missing value then return ""
+	if searchPattern is missing value then return ""
+	
 	set theString to current application's NSString's stringWithString:someText
 	set theRange to theString's rangeOfString:searchPattern options:(current application's NSRegularExpressionSearch)
 	if location of theRange = current application's NSNotFound then
@@ -31,30 +34,39 @@ on regexMatch(someText, searchPattern)
 	return foundString as text
 end regexMatch
 
--- Performs a regex search/replace action on the given input string. The given search & replace patterns are treated as regular expressions.
+-- Performs a regex search/replace action on the given input string. The given search & replace patterns are treated as regular expressions. Returns the input string in case nothing was matched.
 -- @param someText The input string on which the search/replace shall be performed
 -- @param searchPattern The search string as an ICU-compatible regular expression
 -- @param replacePattern The replace string as an ICU-compatible regular expression
 on regexReplace(someText, searchPattern, replacePattern)
+	if someText is missing value then return ""
+	if searchPattern is missing value or replacePattern is missing value then return someText
+	
 	set theString to current application's NSString's stringWithString:someText
 	set theString to theString's stringByReplacingOccurrencesOfString:searchPattern withString:replacePattern options:(current application's NSRegularExpressionSearch) range:{location:0, |length|:length of someText}
 	return theString as text
 end regexReplace
 
--- Performs a literal search/replace action on the given input string.
+-- Performs a literal search/replace action on the given input string. Returns the input string in case nothing was matched.
 -- @param someText The input string on which the search/replace shall be performed
 -- @param searchText The search string (treated as a case insensitive query)
 -- @param replaceText The replace string
 on textReplace(someText, searchText, replaceText)
+	if someText is missing value then return ""
+	if searchText is missing value or replaceText is missing value then return someText
+	
 	set theString to current application's NSMutableString's stringWithString:someText
 	set theString to theString's stringByReplacingOccurrencesOfString:searchText withString:replaceText options:(current application's NSCaseInsensitiveSearch) range:{location:0, |length|:length of someText}
 	return theString as text
 end textReplace
 
--- Splits the given input string on the provided delimiter string.
+-- Splits the given input string on the provided delimiter string. Returns the input string as list in case the delimiter string wasn't found in the input string.
 -- @param someText The input string which shall be split into substrings
 -- @param splitDelim The delimiter string used to split the input string
 on splitText(someText, splitDelim)
+	if someText is missing value or someText is "" then return "" as list
+	if splitDelim is missing value then return someText as list
+	
 	set theString to current application's NSString's stringWithString:someText
 	set theArray to theString's componentsSeparatedByString:splitDelim
 	return theArray as list

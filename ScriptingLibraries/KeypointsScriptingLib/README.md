@@ -33,6 +33,10 @@ For more info, please see [MIT license](https://github.com/extracts/mac-scriptin
 
 ## Release Notes
 
+### v1.1
+
+* The -regexMatch, -regexReplace, -textReplace and -splitText handlers now properly handle faulty (nil) input.
+
 ### v1.0
 
 Initial release.
