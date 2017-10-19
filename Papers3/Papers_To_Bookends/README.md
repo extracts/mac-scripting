@@ -43,7 +43,7 @@ Upon completion, Bookends will display a modal dialog reporting how many publica
 
 ## Requirements
 
-This script requires macOS 10.10 (Yosemite) or greater, the [KeypointsScriptingLib](https://github.com/extracts/mac-scripting/tree/master/ScriptingLibraries/KeypointsScriptingLib) v1.0 or greater, [Papers](http://papersapp.com/mac) 3.4.2 or greater, and [Bookends](http://www.sonnysoftware.com/) 12.5.5 or greater.
+This script requires macOS 10.10 (Yosemite) or greater, the [KeypointsScriptingLib](https://github.com/extracts/mac-scripting/tree/master/ScriptingLibraries/KeypointsScriptingLib) v1.2 or greater, [Papers](http://papersapp.com/mac) 3.4.2 or greater, and [Bookends](http://www.sonnysoftware.com/) 12.5.5 or greater.
 
 
 ## Credits
@@ -59,6 +59,10 @@ For more info, please see [MIT license](https://github.com/extracts/mac-scriptin
 
 
 ## Release Notes
+
+### v1.3
+
+* Now requires the KeypointsScriptingLib v1.2 (or greater) which works around an AppleScriptObjC bug in macOS 10.13.0 (High Sierra) where `current application's NSNotFound` is returning the wrong value.
 
 ### v1.2
 

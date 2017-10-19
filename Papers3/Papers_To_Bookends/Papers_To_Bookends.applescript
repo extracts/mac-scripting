@@ -1,11 +1,11 @@
 -- Papers to Bookends
--- version 1.2, licensed under the MIT license
+-- version 1.3, licensed under the MIT license
 
 -- by Matthias Steffens, keypointsapp.net, mat(at)extracts(dot)de
 
 -- Exports all publications selected in your Papers 3 library (incl. its primary PDFs) to Bookends.
 
--- This script requires macOS 10.10 (Yosemite) or greater, the KeypointsScriptingLib v1.0 or
+-- This script requires macOS 10.10 (Yosemite) or greater, the KeypointsScriptingLib v1.2 or
 -- greater, Papers 3.4.2 or greater, and Bookends 12.5.5 or greater.
 
 -- Besides the common publication metadata (supported by the RIS format), this export script will
