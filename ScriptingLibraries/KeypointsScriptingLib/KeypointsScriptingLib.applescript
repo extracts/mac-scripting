@@ -1,5 +1,5 @@
 -- Keypoints Scripting Lib
--- version 1.1, licensed under the MIT license
+-- version 1.2, licensed under the MIT license
 
 -- by Matthias Steffens, keypointsapp.net, mat(at)extracts(dot)de
 
@@ -15,6 +15,11 @@ use framework "/System/Library/Frameworks/AppKit.framework"
 use framework "/System/Library/Frameworks/Quartz.framework"
 use scripting additions
 
+-- NOTE: this works around an AppleScriptObjC bug in macOS 10.13.0 (High Sierra) where `current application's NSNotFound` returns the
+-- wrong value (-1) instead of something close to 9223372036854775807 (pre 10.13.0, `NSNotFound` returns 9.22337203685478E+18).
+-- see http://latenightsw.com/high-sierra-applescriptobjc-bugs/
+property NSNotFound : a reference to 9.22337203685477E+18 + 5807
+
 -- STRINGS
 
 -- Searches the given input string using the given search pattern (which is treated as regular expression). Returns the substring matched by the entire search pattern, or an empty string (in case nothing was matched).
@@ -26,7 +31,7 @@ on regexMatch(someText, searchPattern)
 	
 	set theString to current application's NSString's stringWithString:someText
 	set theRange to theString's rangeOfString:searchPattern options:(current application's NSRegularExpressionSearch)
-	if location of theRange = current application's NSNotFound then
+	if location of theRange = NSNotFound then
 		set foundString to ""
 	else
 		set foundString to theString's substringWithRange:theRange
@@ -90,7 +95,7 @@ end fileExtension
 on indexOf:anItem inList:theList
 	set theArray to current application's NSArray's arrayWithArray:theList
 	set theIndex to theArray's indexOfObject:anItem
-	if theIndex = current application's NSNotFound then
+	if theIndex = NSNotFound then
 		return 0
 	else
 		return (theIndex + 1) -- we add 1 since Cocoa uses zero-based indexes
