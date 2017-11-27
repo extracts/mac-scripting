@@ -57,7 +57,8 @@ by Matthias Steffens, keypointsapp.net, mat(at)extracts(dot)de
 
 Thanks to:
 
-* Stephan Zellerhoff for providing the code to index a publication's PDF in DEVONthink Pro.
+* Rob Trew whose "[Papers2 to Devonthink](http://blog.devontechnologies.com/2011/03/1651/)" and "[Sente 6 Notes to Devonthink](https://github.com/RobTrew/tree-tools/blob/master/DevonThink%20scripts/Sente6ToDevn73.applescript)" scripts gave a lot of inspiration for this script.
+* Stephan Zellerhoff for providing code and suggestions on how to improve the script.
 
 
 ## License
