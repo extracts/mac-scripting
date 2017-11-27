@@ -13,6 +13,10 @@ See below for a summary of the scripts contained in this repository, and how to 
 
 Exports all publications selected in your Papers 3 library to Bookends. The script will also transfer the publication's primary PDF (if there's any) and can also transfer the publication's rating, color label, flagged status, language, edition, citekey, and "papers://..." link. [[More Info](https://github.com/extracts/mac-scripting/tree/master/Papers3/Papers_To_Bookends)] [[Download](https://github.com/extracts/mac-scripting/raw/master/Papers3/Papers_To_Bookends/Papers_To_Bookends.app.zip)]
 
+#### Papers to DEVONthink
+
+Exports all notes & highlight annotations of all publications selected in your Papers 3 library to DEVONthink Pro. The script will also index the publication's primary PDF in DEVONthink Pro, and can also transfer the annotation's color & creation date as well as the publication's formatted reference, citekey, keywords, color label, flagged status, "papers://..." link and BibTeX metadata. [[More Info](https://github.com/extracts/mac-scripting/tree/master/Papers3/Papers_To_DEVONthink)] [[Download](https://github.com/extracts/mac-scripting/raw/master/Papers3/Papers_To_DEVONthink/Papers_To_DEVONthink.app.zip)]
+
 
 ## FAQ
 
