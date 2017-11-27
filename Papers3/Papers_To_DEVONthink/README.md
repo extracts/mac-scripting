@@ -10,16 +10,19 @@ This export script will transfer the following annotation properties:
 * quoted text
 * annotation type
 * creation date
-* color label
+* annotation color
 
 In addition, these publication properties are also transferred:
 
 * formatted reference
 * cite key
 * keywords
+* color label
+* flagged status
 * "papers://…" link
+* BibTeX metadata
 
-The export of some of these properties can be disabled below. Example note as created by this script:
+The export of some of these properties can be disabled within the script. Example note as created by this script:
 
 ```
 Krell, A. et al., 2003. The biology and chemistry of land fast ice in the White Sea, Russia–A comparison of winter and spring conditions. Polar Biology, 26(11), pp.707–719.
