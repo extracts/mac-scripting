@@ -1,5 +1,5 @@
 -- Papers to Bookends
--- version 1.3, licensed under the MIT license
+-- version 1.4, licensed under the MIT license
 
 -- by Matthias Steffens, keypointsapp.net, mat(at)extracts(dot)de
 
@@ -195,7 +195,16 @@ on exportToBookends(pubList, risRecordList)
 			set bookendsImportInfo to ""
 			
 			set aFile to primary file item of aPub
-			if aFile is not missing value then -- export file & metadata
+			set exportFile to false
+			if aFile is not missing value then
+				set missingPDF to (full path of aFile is "" or full path of aFile is missing value)
+				if not missingPDF then
+					set exportFile to true
+				else
+					KeypointsLib's logToSystemConsole(name of me, "PDF is missing for publication \"" & pubName & "\", importing metadata only...")
+				end if
+			end if
+			if exportFile then -- export file & metadata
 				set fileName to formatted file name of aFile
 				if fileName is missing value then
 					KeypointsLib's displayError("Couldn't get file name!", "The file at \"" & filePath & "\" could not be found.", 15, true)

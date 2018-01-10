@@ -60,6 +60,10 @@ For more info, please see [MIT license](https://github.com/extracts/mac-scriptin
 
 ## Release Notes
 
+### v1.4
+
+* Now gracefully handles papers whose primary PDF is missing from your Papers library: Instead of throwing an error, the script now ignores the missing PDF and just imports the publication metadata into Bookends.
+
 ### v1.3
 
 * Now requires the KeypointsScriptingLib v1.2 (or greater) which works around an AppleScriptObjC bug in macOS 10.13.0 (High Sierra) where `current application's NSNotFound` is returning the wrong value.
