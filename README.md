@@ -2,10 +2,21 @@
 
 This repository contains an assortment of MIT-licensed AppleScript or JXA (JavaScript for Automation) scripts for various macOS applications.
 
-See below for a summary of the scripts contained in this repository, and how to use them. For further info about a certain script, please see the script's README file in the script's subdirectory.
+
+## Getting Started with Scripting
+
+### AppleScript
+
+The getting started guide [Scripting Papers 3 for Mac with AppleScript](https://extracts.github.io/mac-scripting/Papers3/Getting_Started) contains a quick intro to AppleScript, and gives concrete examples for scripting Papers 3. The guide's [Resources](https://extracts.github.io/mac-scripting/Papers3/Getting_Started#resources) section contains useful links to further info & tuturials about AppleScript.
+
+### JavaScript for Automation
+
+During NSConference 2015, I've given a short introductory talk about [JavaScript For Automation: A Quick Intro To Its Use For Debugging](https://vimeo.com/124349703). Papers 3 was also used for the code examples in this talk.
 
 
 ## List of scripts
+
+See below for a summary of the scripts contained in this repository, and how to use them. For further info about a certain script, please see the script's README file in the script's subdirectory.
 
 ### Papers 3
 
