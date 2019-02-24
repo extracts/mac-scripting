@@ -7,7 +7,7 @@ This repository contains an assortment of MIT-licensed AppleScript or JXA (JavaS
 
 ### AppleScript
 
-The getting started guide [Scripting Papers 3 for Mac with AppleScript](https://extracts.github.io/mac-scripting/Papers3/Getting_Started) contains a quick intro to AppleScript, and gives concrete examples for scripting Papers 3. The guide's [Resources](https://extracts.github.io/mac-scripting/Papers3/Getting_Started#resources) section contains useful links to further info & tuturials about AppleScript.
+The getting started guides [Scripting Papers 3 for Mac with AppleScript](https://extracts.github.io/mac-scripting/Papers3/Getting_Started) and [Scripting Bookends 13 with AppleScript](https://extracts.github.io/mac-scripting/Bookends/Getting_Started) contain a quick intro to AppleScript, and give concrete examples for scripting Papers 3 and Bookends 13, respectively. The guide's [Resources](https://extracts.github.io/mac-scripting/Bookends/Getting_Started#resources) section contains useful links to further info & tuturials about AppleScript.
 
 ### JavaScript for Automation
 
