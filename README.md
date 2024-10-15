@@ -18,6 +18,21 @@ During NSConference 2015, I've given a short introductory talk about [JavaScript
 
 See below for a summary of the scripts contained in this repository, and how to use them. For further info about a certain script, please see the script's README file in the script's subdirectory.
 
+
+### Bookends
+
+#### Update group publications from attachment name
+
+A sample script for Bookends which shows how to extract information from attachment file names, and set publication metadata accordingly. [[More Info](https://github.com/extracts/mac-scripting/tree/master/Bookends/Update_group_publications_from_attachment_name)] [[Download](https://github.com/extracts/mac-scripting/raw/master/Bookends/Update_group_publications_from_attachment_name/Update_group_publications_from_attachment_name.app.zip)]
+
+
+### DEVONthink
+
+#### DEVONthink Notes from PDF Annotations
+
+Creates individual Markdown notes for annotations contained in PDF(s) that are selected in DEVONthink. The script matches the PDF annotation highlight color to DEVONthink labels, supports markup in PDF annotation notes to set the note's title, flag, rating, tags & custom metadata, can auto-fetch bibliographic metadata, and creates deep links that directly point back to the PDF annotation. [[More Info](https://github.com/extracts/mac-scripting/tree/master/DEVONthink/DEVONthink_Notes_from_PDF_Annotations)] [[Download](https://github.com/extracts/mac-scripting/raw/master/DEVONthink/DEVONthink_Notes_from_PDF_Annotations/DEVONthink_Notes_from_PDF_Annotations.scptd.zip)]
+
+
 ### Papers 3
 
 #### Papers to Bookends
@@ -45,11 +60,11 @@ The system's script menu provides a convenient way to execute your scripts. This
 
 If you download a precompiled `.app` or `.scptd` version of the script, then you won't need to do anything. In that case, any required scripting libraries are already included inside this signed script package.
 
-If you want to edit and/or compile a script from its text (`.applescript`) version, you'll need to download & install any required scripting libraries separately. Scripting libraries used by scripts in this repository are stored in the `ScriptingLibraries` subdirectory.
+If you want to edit and/or compile a script from its text (`.applescript`) version, you'll need to download & install any required scripting libraries separately. Scripting libraries used by scripts in this repository are stored in the [ScriptingLibraries](https://github.com/extracts/mac-scripting/tree/master/ScriptingLibraries/) subdirectory.
 
 Perform the following steps to make a scripting library available to any scripts executed from within your current user account:
 
-1. Find the correct scripting library in the `ScriptingLibraries` subdirectory of this repository.
+1. Find the correct scripting library in the [ScriptingLibraries](https://github.com/extracts/mac-scripting/tree/master/ScriptingLibraries/) subdirectory of this repository.
 2. Download the scripting library's `.scptd` or `.zip` file to your desktop (or anywhere else). In case of a `.zip` file, double click it to unzip it.
 3. In the Finder, choose "Go to Folder" from the "Go" menu and paste `~/Library/` into it, then hit Return. This opens the (hidden) `Library` folder inside your home folder.
 4. Inside this `Library` folder, search for a folder named `Script Libraries`. If it doesn't exist, please create it with this exact name: `Script Libraries`
