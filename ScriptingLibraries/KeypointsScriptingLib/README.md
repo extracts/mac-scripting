@@ -33,6 +33,10 @@ For more info, please see [MIT license](https://github.com/extracts/mac-scriptin
 
 ## Release Notes
 
+### v1.3
+
+* Improved the `valueForKey:inRecord:` & `fileExistsAtFilePath()` methods, and added more methods, e.g. to support the [DEVONthink Notes from PDF Annotations](https://github.com/extracts/mac-scripting/tree/master/DEVONthink/DEVONthink_Notes_from_PDF_Annotations) script.
+
 ### v1.2
 
 * Worked around an AppleScriptObjC bug in macOS 10.13.0 (High Sierra) where `current application's NSNotFound` is returning the wrong value.
