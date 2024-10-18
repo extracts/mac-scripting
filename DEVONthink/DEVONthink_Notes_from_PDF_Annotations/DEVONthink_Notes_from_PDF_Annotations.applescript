@@ -1,12 +1,12 @@
 -- DEVONthink Notes from PDF Annotations
--- version 1.0, licensed under the MIT license
+-- version 1.1, licensed under the MIT license
 
 -- by Matthias Steffens, keypoints.app, mat(at)extracts(dot)de
 
 -- For each of the PDFs selected in DEVONthink, this script will iterate over its contained PDF annotations
 -- and create or update a Markdown record for each markup or text annotation.
 
--- This script requires macOS 10.14 (High Sierra) or greater, the KeypointsScriptingLib v1.3 or greater,
+-- This script requires macOS 10.14 (High Sierra) or greater, the KeypointsScriptingLib v1.4 or greater,
 -- and DEVONthink Pro v3.x or greater (DEVONthink Pro v3.9 or greater will be required to have deep
 -- links to PDF annotations work correctly).
 
@@ -111,7 +111,8 @@
 
 -- Ideas for improvement:
 
--- allow the script to be called by a smart rule (w/o displaying a feedback dialog once done and w/o selecting any updated records)
+-- allow name & content of created Markdown records to be generated via a template
+-- allow the script to be called by a smart rule (displaying feedback on completion in a notification and w/o selecting any updated records)
 -- offer a configuration option to specify which metadata shall get exported into which custom metadata field
 -- if just some DEVONthink groups were selected, allow to get all contained PDFs and process these
 -- allow to optionally look-up the PDF file in a reference manager like Bookends and auto-fetch citekey & citation info from there
@@ -262,7 +263,7 @@ property updatedNotesCount : 0
 -- It can be made available to this script by copying it into a "Script Libraries" folder inside
 -- the "Library" folder that's within your Home folder.
 -- see https://github.com/extracts/mac-scripting/tree/master/ScriptingLibraries/KeypointsScriptingLib
-use KeypointsLib : script "KeypointsScriptingLib" -- v1.3 or greater required
+use KeypointsLib : script "KeypointsScriptingLib" -- v1.4 or greater required
 
 use framework "/System/Library/Frameworks/AppKit.framework"
 use framework "/System/Library/Frameworks/Quartz.framework"
@@ -384,18 +385,25 @@ on createDEVONthinkNotesForPDF(pdfRecord)
 		end try
 	end tell
 	
-	-- extract any citekey for the PDF from its custom metadata
+	-- extract any DOI & citekey for the PDF from its custom metadata
+	set sourceDOI to ""
 	set sourceCitekey to ""
-	set metadataCitekey to (KeypointsLib's valueForKey:"mdcitekey" inRecord:pdfMetadata)
-	if metadataCitekey is not missing value and metadataCitekey is not "" then
-		set sourceCitekey to metadataCitekey
+	if pdfMetadata is not {} then
+		set metadataDOI to (KeypointsLib's valueForKey:"mddoi" inRecord:pdfMetadata)
+		if metadataDOI is not missing value and metadataDOI is not "" then
+			set sourceDOI to KeypointsLib's matchDOI(metadataDOI)
+		end if
+		set metadataCitekey to (KeypointsLib's valueForKey:"mdcitekey" inRecord:pdfMetadata)
+		if metadataCitekey is not missing value and metadataCitekey is not "" then
+			set sourceCitekey to metadataCitekey
+		end if
 	end if
 	
 	-- assemble info for all PDF annotations as a list of property records
-	set {pdfAnnotationsList, pdfDOI} to my pdfAnnotationInfo(pdfPath, pdfurl, sourceCitekey)
+	set {pdfAnnotationsList, sourceDOI} to my pdfAnnotationInfo(pdfPath, pdfurl, sourceDOI, sourceCitekey)
 	
 	-- set custom metadata fields for the PDF record: DOI & DT link back to the notes folder
-	set pdfMetadata to pdfMetadata & {doi:pdfDOI, pdfannotations:folderURL}
+	set pdfMetadata to pdfMetadata & {doi:sourceDOI, pdfannotations:folderURL}
 	my setMetadataForDTRecord(pdfRecord, pdfMetadata)
 	
 	-- if the notes folder just got created, set its metadata
@@ -404,15 +412,15 @@ on createDEVONthinkNotesForPDF(pdfRecord)
 	set bibTeXData to ""
 	if folderDidExist is false or alwaysFetchDOIMetadata is true then
 		-- fetch bibliographic metadata for the PDF's DOI
-		if fetchDOIMetadata is true and pdfDOI is not missing value and pdfDOI is not "" then
-			set bibMetadata to my bibMetadataForDOI(pdfDOI, sourceCitekey)
+		if fetchDOIMetadata is true and sourceDOI is not missing value and sourceDOI is not "" then
+			set bibMetadata to my bibMetadataForDOI(sourceDOI, sourceCitekey)
 			if bibMetadata is not {} then
 				set formattedCitation to (KeypointsLib's valueForKey:"reference" inRecord:bibMetadata)
 				set bibTeXData to (KeypointsLib's valueForKey:"bibtex" inRecord:bibMetadata)
 			end if
 		end if
 		
-		set folderMetadata to folderMetadata & {sourceFile:pdfPath, citekey:sourceCitekey, doi:pdfDOI}
+		set folderMetadata to folderMetadata & {sourceFile:pdfPath, citekey:sourceCitekey, doi:sourceDOI}
 		set folderMetadata to folderMetadata & bibMetadata
 		
 		my setMetadataForDTFolder(folderLocation, folderMetadata)
@@ -433,7 +441,13 @@ on createDEVONthinkNotesForPDF(pdfRecord)
 	-- loop over each markup or text annotation in the PDF and create/update its corresponding Markdown record
 	repeat with pdfAnnotation in pdfAnnotationsList
 		set aComment to (pdfAnnotation's comment)
+		if aComment is (current application's NSNull's |null|) then set aComment to missing value
+		if aComment is not missing value then set aComment to aComment as string
+		
 		set annotText to (pdfAnnotation's annotText)
+		if annotText is (current application's NSNull's |null|) then set annotText to missing value
+		if annotText is not missing value then set annotText to annotText as string
+		
 		set aPageLabel to (pdfAnnotation's pageLabel)
 		
 		-- assemble record content from annotation text & comment
@@ -466,7 +480,7 @@ on createDEVONthinkNotesForPDF(pdfRecord)
 		set citekey to (pdfAnnotation's citekey)
 		if citekey is not missing value and citekey is not "" then set recordMetadata to recordMetadata & {citekey:citekey}
 		
-		if pdfDOI is not missing value and pdfDOI is not "" then set recordMetadata to recordMetadata & {doi:pdfDOI}
+		if sourceDOI is not missing value and sourceDOI is not "" then set recordMetadata to recordMetadata & {doi:sourceDOI}
 		
 		-- extract tags (like `< @tag @another tag` or `< [@tag] [@another tag]`) as well as custom attributes
 		-- (i.e., special tags like `< @:key:value @:key` or `< [@:key:value] [@:key]`) within the annotation comment
@@ -513,15 +527,22 @@ end createDEVONthinkNotesForPDF
 -- @param pdfPath The POSIX path to the PDF file on disk.
 -- @param pdfurl The `x-devonthink-item://...` URL of the corresponding PDF record
 -- in DEVONthink.
+-- @param sourceDOI The DOI of the publication represented by the PDF (may be
+-- empty).
 -- @param sourceCitekey The citekey of the publication represented by the PDF (may
 -- be empty).
 -- Credits: this method was inspired by a script by mdbraber
 -- See https://discourse.devontechnologies.com/t/stream-annotations-from-your-pdf-reading-sessions-with-devonthink/70727/30
-on pdfAnnotationInfo(pdfPath, pdfurl, sourceCitekey)
+on pdfAnnotationInfo(pdfPath, pdfurl, sourceDOI, sourceCitekey)
 	set pdfDoc to current application's PDFDocument's alloc()'s initWithURL:(current application's |NSURL|'s fileURLWithPath:pdfPath)
 	
-	-- try to get any DOI from PDF metadata or first PDF page
-	set pdfDOI to KeypointsLib's doiFromPDF(pdfPath, pdfDoc, true)
+	-- if there's no given DOI yet, try to get any DOI from PDF metadata or first PDF page
+	if sourceDOI is "" then
+		set pdfDOI to KeypointsLib's doiFromPDF(pdfPath, pdfDoc, true)
+		if pdfDOI is not "" then
+			set sourceDOI to pdfDOI
+		end if
+	end if
 	
 	-- iterate over each PDF page and process its annotations
 	set pdfAnnotationsArray to current application's NSMutableArray's new()
@@ -564,6 +585,7 @@ on pdfAnnotationInfo(pdfPath, pdfurl, sourceCitekey)
 				
 				set annotComment to pdfAnnotation's |contents|()
 				
+				-- create a deep link for this annotation
 				set annotURL to pdfurl & ¬
 					"?page=" & i & ¬
 					"&annotation=" & annotType & ¬
@@ -580,7 +602,7 @@ on pdfAnnotationInfo(pdfPath, pdfurl, sourceCitekey)
 		end repeat
 	end repeat
 	
-	return {pdfAnnotationsArray as list, pdfDOI}
+	return {pdfAnnotationsArray as list, sourceDOI}
 end pdfAnnotationInfo
 
 
@@ -592,7 +614,7 @@ on recordContentFromPDFAnnotationData(annotText, annotComment)
 		copy "> " & (annotText as string) to end of recordContentParts
 	end if
 	
-	if annotComment is not missing value and annotComment is not (current application's NSNull's |null|) and annotComment is not "" then
+	if annotComment is not missing value and annotComment is not "" then
 		set processedComment to annotComment
 		
 		-- ensure that a first-level heading at the top of the annotation comment stays there
@@ -607,7 +629,8 @@ on recordContentFromPDFAnnotationData(annotText, annotComment)
 		end if
 		
 		-- for the record content, add the remaining annotation comment w/o any metadata lines (which start with "< ")
-		set processedComment to KeypointsLib's regexReplace(processedComment, "(?<=^|[\\r\\n])< .+([\\r\\n]|$)", "")
+		set processedComment to KeypointsLib's keypointsNoteWithoutMetadataLines(processedComment, false)
+		
 		copy processedComment to end of recordContentParts
 	end if
 	
@@ -616,6 +639,8 @@ on recordContentFromPDFAnnotationData(annotText, annotComment)
 	else
 		set recordContents to "(no content)"
 	end if
+	
+	return recordContents
 end recordContentFromPDFAnnotationData
 
 
@@ -629,7 +654,6 @@ on recordNameFromPDFAnnotationData(annotText, annotComment, pageLabel)
 	
 	set recordNamePart to ""
 	if annotComment is not missing value and annotComment is not "" then
-		set annotComment to annotComment as string
 		-- for the record's name, use any first-level heading (if there's one in the annotation's comment)
 		set markdownHeadings to KeypointsLib's markdownHeadingsFromText(annotComment, "#")
 		if markdownHeadings is not {} then
@@ -638,6 +662,7 @@ on recordNameFromPDFAnnotationData(annotText, annotComment, pageLabel)
 		
 		-- otherwise, use up to 12 words from the beginning of the "comment"
 		if recordNamePart is "" then
+			set annotComment to KeypointsLib's keypointsNoteWithoutMetadataLines(annotComment, true)
 			set recordNamePart to KeypointsLib's firstWordsFromText(annotComment, 12)
 		end if
 	end if

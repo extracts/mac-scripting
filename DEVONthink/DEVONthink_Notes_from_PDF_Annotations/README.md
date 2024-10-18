@@ -4,7 +4,7 @@ For each of the PDFs selected in DEVONthink, this script will iterate over its c
 
 The URL of each Markdown record will be set to a deep link that directly points to the corresponding PDF annotation. I.e., clicking this deep link will open the associated PDF and scroll the corresponding PDF annotation into view.
 
-For each Markdown record, the script can assign a color label that matches your annotation's highlight color (see [Setup](#setup) below).
+For each Markdown record, the script assigns a color label that matches your annotation's highlight color (see [Setup](#setup) below).
 
 The script recognizes some markup syntax in PDF annotation notes. This lets you specify the annotation's name/title and comment as well as its flagged status, star rating, tags and custom metadata. Example annotation note as supported by this script:
 
@@ -25,9 +25,11 @@ For further details, please see the notes at the top of the script.
 
 The precompiled & signed `.scptd` version of this script already includes the required scripting library and is ready to go. Just [download](https://github.com/extracts/mac-scripting/raw/master/DEVONthink/DEVONthink_Notes_from_PDF_Annotations/DEVONthink_Notes_from_PDF_Annotations.scptd.zip) the zipped `.scptd` package, then double click it to unzip.
 
-After unpacking it, copy the script to a suitable place, like the DEVONthink script folder (recommended), or the system's script menu folder. For an illustrated guide which describes how to enable and use the system's script menu, please see [iworkautomation.com: The script menu](https://iworkautomation.com/numbers/script-menu.html).
+After unpacking the script, copy it to a suitable place, like the DEVONthink Scripts folder. To open this folder, activate DEVONthink, select the [Scripts menu](https://download.devontechnologies.com/download/devonthink/3.8.2/DEVONthink.help/Contents/Resources/pgs/menus-scripts.html) and choose "Open Scripts Folder". This will open the DEVONthink Scripts folder in the Finder. It is located at `~/Library/Application Scripts/com.devon-technologies.think3/Menu`.
 
-If you've placed your script into the DEVONthink script folder, you may also append a keyboard shortcut description (like `___Command-Shift-Alt-A`) to the script's name. After restarting DEVONthink, you should be able to run your script via the specified keyboard shortcut.
+Alternatively, you could also copy the script to the system's Script menu folder. For an illustrated guide which describes how to enable and use the system's script menu, please see [iworkautomation.com: The script menu](https://iworkautomation.com/numbers/script-menu.html).
+
+If you've placed your script into the DEVONthink Scripts folder, you may also append a keyboard shortcut description (like `___Command-Shift-Alt-A`) to the script's name. You should then be able to run your script by pressing the specified keyboard shortcut.
 
 
 ## Setup
@@ -41,7 +43,7 @@ You may also want to check out some of the other script properties as these allo
 
 Before running the script, make sure that DEVONthink is running, and that you've selected one or more PDF records with PDF annotations in DEVONthink.
 
-To run the script, select its menu entry from the (DEVONthink or system's) script menu, or press your keyboard shortcut.
+To run the script, select its menu entry from the (DEVONthink or system's) Scripts menu, or press your keyboard shortcut.
 
 After the script has finished, you'll see a dialog with feedback on how many PDFs have been processed and how many note records have been created/updated. For each PDF, its annotation notes are stored within a DEVONthink group next to the PDF.
 
@@ -73,6 +75,12 @@ For more info, please see [MIT license](https://github.com/extracts/mac-scriptin
 
 
 ## Release Notes
+
+### v1.1
+
+* If a PDF has a DOI set in custom metadata this will be preferred over any DOI extracted from the PDF itself.
+* Fixed an issue where only custom attributes from the last metadata line were extracted from a PDF annotation note.
+* Fixed an issue where "…" was incorrectly appended when generating note names.
 
 ### v1.0
 
