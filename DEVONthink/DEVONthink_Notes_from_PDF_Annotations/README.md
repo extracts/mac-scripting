@@ -52,7 +52,7 @@ Note that you can run the script multiple times with the same PDF record(s) sele
 
 ## Requirements
 
-This script requires macOS 10.14 (High Sierra) or greater, the [KeypointsScriptingLib](https://github.com/extracts/mac-scripting/tree/master/ScriptingLibraries/KeypointsScriptingLib) v1.3 or greater,
+This script requires macOS 10.14 (High Sierra) or greater, the [KeypointsScriptingLib](https://github.com/extracts/mac-scripting/tree/master/ScriptingLibraries/KeypointsScriptingLib) v1.4 or greater,
 and [DEVONthink Pro](https://www.devontechnologies.com/apps/devonthink) v3.x or greater (DEVONthink Pro v3.9 or greater will be required to have deep links to PDF annotations work correctly).
 
 
