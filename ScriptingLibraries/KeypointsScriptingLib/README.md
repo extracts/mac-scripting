@@ -33,6 +33,19 @@ For more info, please see [MIT license](https://github.com/extracts/mac-scriptin
 
 ## Release Notes
 
+### v1.4
+
+* Fixed issue in `customAttributesAndTagsFromKeypointsNote()` where only custom attributes from the last metadata line were returned.
+* Added these new methods:
+  * `trimWhitespace()`
+  * `itemsFromList:matchingRegex:negateResults:`
+  * `matchDOI()`
+  * `quotationLinesFromKeypointsNote()`
+  * `metadataLinesFromKeypointsNote()`
+  * `keypointsNoteWithoutMetadataLines()`
+  * `setClipboard()`
+  * `pasteIntoFrontApp()`
+
 ### v1.3
 
 * Improved the `valueForKey:inRecord:` & `fileExistsAtFilePath()` methods, and added more methods, e.g. to support the [DEVONthink Notes from PDF Annotations](https://github.com/extracts/mac-scripting/tree/master/DEVONthink/DEVONthink_Notes_from_PDF_Annotations) script.

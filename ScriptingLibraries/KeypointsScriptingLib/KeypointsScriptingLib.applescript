@@ -1,5 +1,5 @@
 -- Keypoints Scripting Lib
--- version 1.3, licensed under the MIT license
+-- version 1.4, licensed under the MIT license
 
 -- by Matthias Steffens, keypoints.app, mat(at)extracts(dot)de
 
@@ -23,7 +23,8 @@ property NSNotFound : a reference to 9.22337203685477E+18 + 5807
 -- STRINGS
 
 -- Searches the given input string using the given search pattern (which is treated as regular expression).
--- Returns the substring matched by the entire search pattern, or an empty string (in case nothing was matched).
+-- Returns the first substring matched by the entire search pattern, or an empty string (in case nothing
+-- was matched).
 -- @param someText The input string on which the search shall be performed
 -- @param searchPattern The search string as an ICU-compatible regular expression
 on regexMatch(someText, searchPattern)
@@ -132,6 +133,15 @@ on capitalizedText(theString)
 	return theTransformedString as text
 end capitalizedText
 
+-- Removes whitespace & newlines from both ends of the given string and returns it.
+on trimWhitespace(theString)
+	if theString is missing value or theString is "" then return ""
+	
+	set theString to current application's NSString's stringWithString:theString
+	set theTransformedString to theString's stringByTrimmingCharactersInSet:(current application's NSCharacterSet's whitespaceAndNewlineCharacterSet())
+	return theTransformedString as text
+end trimWhitespace
+
 
 -- STRINGS (FILE PATHS/NAMES)
 
@@ -239,7 +249,7 @@ on removeEmptyStringsFromList:theList
 	return theArray as list
 end removeEmptyStringsFromList:
 
--- For the given list, returns a list with all values beginning with the given prefix.
+-- For the given list of strings, returns a list with all values beginning with the given prefix.
 -- @param negateResults Set to `true` if all values NOT beginning with the given prefix shall be returned,
 --    otherwise use `false`
 on itemsFromList:theList withPrefix:thePrefix negateResults:negateResults
@@ -253,7 +263,7 @@ on itemsFromList:theList withPrefix:thePrefix negateResults:negateResults
 	return theResult as list
 end itemsFromList:withPrefix:negateResults:
 
--- For the given list, returns a list with all values containing the given substring.
+-- For the given list of strings, returns a list with all values containing the given substring.
 -- @param negateResults Set to `true` if all values NOT containing the given substring shall be returned,
 --    otherwise use `false`
 on itemsFromList:theList containingSubstring:theString negateResults:negateResults
@@ -266,6 +276,22 @@ on itemsFromList:theList containingSubstring:theString negateResults:negateResul
 	set theResult to (theArray's filteredArrayUsingPredicate:thePred)
 	return theResult as list
 end itemsFromList:containingSubstring:negateResults:
+
+-- For the given list of strings, returns a list with all values matching the given regex pattern.
+-- Note that this only returns list items where the regex pattern fully matches its entire value.
+-- @param negateResults Set to `true` if all values NOT containing the given substring shall be returned,
+--    otherwise use `false`
+-- @see https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/Predicates/Articles/pUsing.html#//apple_ref/doc/uid/TP40001794-SW9
+on itemsFromList:theList matchingRegex:theRegex negateResults:negateResults
+	set theArray to current application's NSMutableArray's arrayWithArray:theList
+	if negateResults is true then
+		set thePred to current application's NSPredicate's predicateWithFormat:("NOT (SELF matches %@)") argumentArray:{theRegex}
+	else
+		set thePred to current application's NSPredicate's predicateWithFormat:("SELF matches %@") argumentArray:{theRegex}
+	end if
+	set theResult to (theArray's filteredArrayUsingPredicate:thePred)
+	return theResult as list
+end itemsFromList:matchingRegex:negateResults:
 
 -- Combines all items of the sublists in the given list into a single list.
 on unionOfListsInList:theList
@@ -561,13 +587,6 @@ on doiFromPDF(pdfPath, pdfDoc, scanFirstPage)
 	end if
 	if pdfDoc is missing value then return ""
 	
-	-- Note that we could also use `\\S+[-+)\\w]` to match the DOI suffix but the more restrictive pattern below
-	-- helps to better match DOIs in URLs (like `…=10.1038/35088167&link_type=DOI`).
-	-- @warning Note that this pattern won't match SICI DOIs nor DOIs containing `&`, but it may match a trailing
-	-- parenthesis which is not part of the actual DOI.
-	-- @see https://www.crossref.org/blog/dois-and-matching-regular-expressions/
-	set doiRegex to "(?i)\\b10\\.\\d{4,9}(?:\\.[\\.\\w]+)*/[-._;()/:\\w]+[-+)\\w]"
-	
 	set pdfDOI to ""
 	
 	-- try to get any DOI from PDF metadata
@@ -575,18 +594,18 @@ on doiFromPDF(pdfPath, pdfDoc, scanFirstPage)
 	
 	set pdfSubject to my valueForKey:"Subject" inRecord:pdfDocAttributes
 	if pdfSubject is not missing value and pdfSubject is not "" then
-		set pdfDOI to my regexMatch(pdfSubject, doiRegex) as string
+		set pdfDOI to my matchDOI(pdfSubject)
 	end if
 	
 	set pdfTitle to my valueForKey:"Title" inRecord:pdfDocAttributes
 	if pdfDOI is "" and pdfTitle is not missing value and pdfTitle is not "" then
-		set pdfDOI to my regexMatch(pdfTitle, doiRegex) as string
+		set pdfDOI to my matchDOI(pdfTitle)
 	end if
 	
 	set pdfKeywords to my valueForKey:"Keywords" inRecord:pdfDocAttributes
 	if pdfDOI is "" and pdfKeywords is not missing value and pdfKeywords is not {} then
 		repeat with aKeyword in pdfKeywords
-			if pdfDOI is "" then set pdfDOI to my regexMatch(aKeyword, doiRegex) as string
+			if pdfDOI is "" then set pdfDOI to my matchDOI(aKeyword)
 		end repeat
 	end if
 	
@@ -594,7 +613,10 @@ on doiFromPDF(pdfPath, pdfDoc, scanFirstPage)
 	if pdfDOI is "" and scanFirstPage is true then
 		set pdfPage to (pdfDoc's pageAtIndex:0)
 		set pageText to pdfPage's |string|()
-		set pdfDOI to my regexMatch(pageText, doiRegex) as string
+		
+		if pageText is not (current application's NSNull's |null|) then
+			set pdfDOI to my matchDOI(pageText)
+		end if
 	end if
 	
 	return pdfDOI
@@ -777,6 +799,23 @@ end markdownHeadingsFromText
 
 -- KEYPOINTS
 
+-- Returns the first DOI extracted from the given string, or an empty string if no
+-- DOI could be found.
+on matchDOI(aString)
+	if aString is missing value or aString is "" then return ""
+	
+	-- Note that we could also use `\\S+[-+)\\w]` to match the DOI suffix but the more restrictive pattern below
+	-- helps to better match DOIs in URLs (like `…=10.1038/35088167&link_type=DOI`).
+	-- @warning Note that this pattern won't match SICI DOIs nor DOIs containing `&`, but it may match a trailing
+	-- parenthesis which is not part of the actual DOI.
+	-- @see https://www.crossref.org/blog/dois-and-matching-regular-expressions/
+	set doiRegex to "(?i)\\b10\\.\\d{4,9}(?:\\.[\\.\\w]+)*/[-._;()/:\\w]+[-+)\\w]"
+	
+	set aDOI to my regexMatch(aString, doiRegex)
+	
+	return aDOI as string
+end matchDOI
+
 -- Returns `true` if the given note text contains a Keypoints-style metadata line
 -- (i.e., a line prefixed with `< `) which contains the `@:flagged` attribute,
 -- otherwise returns `false`.
@@ -804,6 +843,38 @@ on keypointsNoteRatingNumber(aNote)
 	return 0
 end keypointsNoteRatingNumber
 
+-- Returns all quotation lines (i.e., lines prefixed with `> `) from the given note.
+-- Note that this returns a list of lists where each sublist contains a block of (originally)
+-- consecutive quotation lines.
+on quotationLinesFromKeypointsNote(aNote)
+	if aNote is missing value or aNote is "" then return {}
+	
+	set quotationBlocks to {}
+	set quotationBlocks to my regexSplit(aNote, "(?:^|[\\r\\n]+)((?!> ).+[\\r\\n]+)+") -- remove all non-empty lines between blocks of quotation lines
+	set quotationBlocks to (my removeEmptyStringsFromList:(quotationBlocks as list)) -- removes empty lines
+	
+	set quotationLines to {}
+	repeat with quotationBlock in quotationBlocks
+		set quotationBlockLines to my regexSplit(quotationBlock, "[\\r\\n]+")
+		set quotationBlockLines to (my itemsFromList:(quotationBlockLines as list) withPrefix:"> " negateResults:false)
+		if quotationBlockLines is not {} then copy quotationBlockLines to end of quotationLines
+	end repeat
+	
+	return quotationLines
+end quotationLinesFromKeypointsNote
+
+-- Returns a list of all metadata lines (i.e., lines prefixed with `< `) from the given note.
+on metadataLinesFromKeypointsNote(aNote)
+	if aNote is missing value or aNote is "" then return {}
+	
+	set metadataLines to {}
+	
+	set metadata to my regexReplace(aNote, "(?<=^|[\\r\\n])(?!< ).+", "") -- remove all non-empty lines that are not metadata lines
+	set metadataLines to (my removeEmptyStringsFromList:(paragraphs of metadata)) -- removes empty lines
+	
+	return metadataLines
+end metadataLinesFromKeypointsNote
+
 -- Returns lists of Keypoints-style custom attributes & tags that could be extracted from
 -- the given note.
 -- Custom attributes & tags must be contained in one or more Keypoints-style metadata
@@ -824,8 +895,7 @@ end keypointsNoteRatingNumber
 on customAttributesAndTagsFromKeypointsNote(aNote, ignoredAttributesList)
 	if aNote is missing value or aNote is "" then return {{}, {}}
 	
-	set metadata to my regexReplace(aNote, "(?<=^|[\\r\\n])(?!< ).+", "") -- remove all non-empty lines that are not metadata lines
-	set metadataLines to (my removeEmptyStringsFromList:(paragraphs of metadata)) -- removes empty lines
+	set metadataLines to my metadataLinesFromKeypointsNote(aNote)
 	
 	set tagRegex to "\\[?@[\\w\\p{P}]+\\]?"
 	set tags to {}
@@ -842,7 +912,8 @@ on customAttributesAndTagsFromKeypointsNote(aNote, ignoredAttributesList)
 			set tagsList to (my removeEmptyStringsFromList:tagsList)
 			
 			-- extract all custom attributes into a separate list (ignoring any attributes contained in ignoredAttributesList)
-			set {customAttributes, tagsList} to my customAttributesFromTags(tagsList, ignoredAttributesList)
+			set {customAttributesList, tagsList} to my customAttributesFromTags(tagsList, ignoredAttributesList)
+			set customAttributes to (my addItemsFromList:customAttributesList toList:customAttributes)
 			set tags to (my addItemsFromList:tagsList toList:tags)
 		end if
 	end repeat
@@ -887,6 +958,19 @@ on customAttributesFromTags(tagsList, ignoredAttributesList)
 	
 	return {customAttributes, tagsList}
 end customAttributesFromTags
+
+-- Returns the given note sans its metadata lines (i.e., lines prefixed with `< `).
+-- @param aNote The note whose metadata lines shall be removed.
+-- @param trimWhitespace Set to `true` if you want whitespace to be trimmed
+-- from both ends of the returned note, otherwise set to `false`.
+on keypointsNoteWithoutMetadataLines(aNote, trimWhitespace)
+	if aNote is missing value or aNote is "" then return ""
+	
+	set processedNote to my regexReplace(aNote, "(?<=^|[\\r\\n])< .+([\\r\\n]|$)", "")
+	if trimWhitespace is true then set processedNote to my trimWhitespace(processedNote)
+	
+	return processedNote as text
+end keypointsNoteWithoutMetadataLines
 
 -- Returns a Keypoints-style ID that represents the given date
 -- Notes:
@@ -1090,9 +1174,9 @@ on mergeTextItems(textItemList, aSeparator)
 end mergeTextItems
 
 -- Displays an error alert.
-on displayError(errorMessage, errorDetails, dismissAfter, cancelSriptExecution)
+on displayError(errorMessage, errorDetails, dismissAfter, cancelScriptExecution)
 	display alert errorMessage message errorDetails as critical buttons {"OK"} default button "OK" giving up after dismissAfter
-	if cancelSriptExecution then
+	if cancelScriptExecution then
 		error number -128
 	end if
 end displayError
@@ -1123,6 +1207,24 @@ on logToSystemConsole(loggerName, logMessage)
 	set loggerName to "AppleScript: " & loggerName
 	do shell script "logger -t \"" & loggerName & "\" " & quoted form of logMessage
 end logToSystemConsole
+
+-- Sets the system's clipboard to the given string.
+on setClipboard(theString)
+	if class of theString is not string then return
+	if theString is missing value then return
+	
+	do shell script "echo " & quoted form of theString & " | pbcopy"
+end setClipboard
+
+-- Triggers a paste of the current clipboard content in the frontmost application.
+on pasteIntoFrontApp()
+	tell application id "sevs"
+		set frontAppID to id of first process whose frontmost is true
+		tell application id frontAppID
+			keystroke "v" using command down
+		end tell
+	end tell
+end pasteIntoFrontApp
 
 
 -- ----------------------------------------------------------------------------
