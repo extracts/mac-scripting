@@ -1,5 +1,5 @@
 -- DEVONthink Notes from PDF Annotations
--- version 1.1, licensed under the MIT license
+-- version 1.2, licensed under the MIT license
 
 -- by Matthias Steffens, keypoints.app, mat(at)extracts(dot)de
 
@@ -14,7 +14,8 @@
 -- Setup:
 
 -- -- Before running the script, do this once: Adjust the DEVONthink label <-> color mapping via the properties
---     `label1` ... `label7` below and save this script again.
+--     `label1` ... `label7` below and save this script again. If saving generates an error, please try again with
+--     Script Debugger (which has a free "lite" mode): https://latenightsw.com/sd8/download/
 
 -- -- You may also want to check the other properties below. These allow to customize the script, e.g. to enable
 --     updating of existing notes, or automatic fetching of BibTeX data.
@@ -28,7 +29,7 @@
 --     be able to run your script via the specified keyboard shortcut.
 
 
--- Run script:
+-- Usage:
 
 -- -- Before running the script, please select one or more PDF records with PDF annotations in DEVONthink.
 
@@ -44,9 +45,16 @@
 --     On a subsequent run of the script, all notes that were newly created (or updated) will be selected.
 
 
+-- Discussion & Help:
+
+-- -- https://discourse.devontechnologies.com/t/script-to-create-individual-markdown-notes-from-pdf-annotations/80987
+--     https://github.com/extracts/mac-scripting/discussions
+
+
 -- Notes:
 
--- -- The script will only recognize these annotation types: "Highlight", "StrikeOut", "Underline", "Squiggly" & "Text".
+-- -- The script will only recognize these annotation types: "Highlight", "StrikeOut", "Underline", "Squiggly", "Text"
+--     and "FreeText".
 
 -- -- For each selected PDF with PDF annotations, the script will create a DEVONthink group next to it containing
 --     Markdown record(s) for all recognized PDF annotation(s). The group's name can be controlled via the properties
@@ -72,7 +80,7 @@
 --     - A line prefixed with `# ` (like a Markdown first-level heading) will be used as the Markdown record's name.
 --     - One or more line(s) prefixed with `< ` indicate a metadata line which will get stripped from the record's
 --        body text but which will set record properties instead:
---        - In a metadata line, include 1 to 5 asterisks or `★`characters to set the record's star-rating, for example
+--        - In a metadata line, include 1 to 5 asterisks or `★` characters to set the record's star-rating, for example
 --          `< ****` would set a 4-star rating for the Markdown record.
 --        - In a metadata line, add the special tag `@:flagged` to set the Markdown record's flagged status to true.
 --        - In a metadata line, add any tags like `@tag` or `@another tag` to set these as the tags of the Markdown
@@ -82,6 +90,9 @@
 --          of `true`.
 --        Note that you can also include any/all of these properties on a single metadata line, for example:
 --        `< **** @:flagged @tag @another tag @:key:Some value`
+
+-- -- If your PDF annotation notes contain custom markup syntax, you can use the `preprocessAnnotationComment()`
+--     method to preprocess & transform this syntax to the (Keypoints-style) format described above.
 
 -- -- For your PDF record, as well as for each of the created Markdown records, a link to the "... – Annotations" group
 --     folder will be copied to a custom metadata field (named `pdfannotations`). This allows you to easily get back to
@@ -98,6 +109,13 @@
 -- -- For each Markdown record, the script will also add an ID-like alias (like "039H-8GAB-1GPA") that's unique and
 --     which optionally can be used to create a stable Wiki-link (like "[[039H-8GAB-1GPA]]") to this Markdown record.
 
+-- -- For each Markdown record, the script will also add a sort identifier string (like "2-1-125" which codifies with integers
+--     the annotation's page, column & position from top) to the `annotationorder` custom metadata field. This metadata
+--     field can be used in DEVONthink to sort annotations in the order they appear in the text of a page. By default,
+--     sort identifiers will be generated so that they try to respect a typical 2-column text layout. Note that this may not
+--     always be perfect. To further control sort identifier generation, see the properties `respectMultiColumnPDFLayouts`
+--     and `maxTextColumns` below.
+
 -- -- If the PDF metadata contain a DOI, this DOI will get written to the `doi` custom metadata field for your PDF
 --     record, the "... – Annotations" group, and for each of the created Markdown records.
 
@@ -109,17 +127,16 @@
 --     see the properties below for options to disable or fine-tune this behaviour.
 
 
--- Ideas for improvement:
+-- Ideas for Improvement:
 
--- allow name & content of created Markdown records to be generated via a template
+-- allow name & content of created Markdown records to be generated via a template (e.g., to allow for custom YAML headers)
 -- allow the script to be called by a smart rule (displaying feedback on completion in a notification and w/o selecting any updated records)
 -- offer a configuration option to specify which metadata shall get exported into which custom metadata field
 -- if just some DEVONthink groups were selected, allow to get all contained PDFs and process these
 -- allow to optionally look-up the PDF file in a reference manager like Bookends and auto-fetch citekey & citation info from there
--- improve the sort order of DEVONthink note records created for PDF annotations from the same PDF page
 -- allow to (optionally) remove tags from Markdown records for PDF annotations whose corresponding tags were removed
 -- allow to (optionally) remove Markdown records from DEVONthink for PDF annotations that were deleted from the PDF
--- support any annotation types other than "Highlight", "StrikeOut", "Underline", "Squiggly" & "Text"
+-- support any annotation types other than "Highlight", "StrikeOut", "Underline", "Squiggly", "Text" & "FreeText"
 -- (see also inline TODOs in the code below)
 
 
@@ -256,6 +273,30 @@ property colorMappings : {redColorMapping, orangeColorMapping, yellowColorMappin
 
 property labelMappings : {label1, label2, label3, label4, label5, label6, label7}
 
+-- Set to `true` if you want this script to associate annotations to text columns in multi-column
+-- PDF layouts when generating sort identifiers.
+-- Sort identifiers will be placed in an `annotationorder` metadata field which can be used in
+-- DEVONthink for sorting so that annotations can be listed in the order they appear in the text
+-- of a page (optionally respecting a multi-column layout).
+-- Sort identifier format: `<PAGE>-<COLUMN>-<POSITION_FROM_TOP>` (e.g. "2-1-207").
+-- If this property is set to `false`, `<COLUMN>` will be always "1".
+-- Note that, depending on the layout of the PDF page and the specific annotation's width,
+-- correctly guessing the annotation's text column may still fail.
+property respectMultiColumnPDFLayouts : true
+
+-- The number of text columns supported by this script when generating sort identifiers.
+-- If you're often dealing with PDF text layouts that have more than the specified number of text
+-- columns then you may want to adjust this integer number. However, note that larger values
+-- will increase the likeliness that short annotations or annotations from document parts
+-- spanning multiple columns (like the abstract) won't sort correctly.
+property maxTextColumns : 2
+
+-- Approximate average width of the (left or right) white space between text & page origin/end.
+-- Note that this is just a wild guess for the average margin of a PDF page as properly calculating
+-- margins isn't straightforward. However, specifying some value for an average margin usually
+-- helps when trying to associate annotations to text columns in multi-column PDF layouts.
+property pageMargin : 20
+
 property createdNotesCount : 0
 property updatedNotesCount : 0
 
@@ -280,6 +321,7 @@ on run
 	-- only deal with currently selected PDFs that contain PDF annotations
 	set pdfRecords to my selectedDEVONthinkPDFsWithPDFAnnotations()
 	
+	-- initialize progress reporting
 	set createdNotesCount to 0
 	set updatedNotesCount to 0
 	set pdfCount to count of pdfRecords
@@ -402,6 +444,10 @@ on createDEVONthinkNotesForPDF(pdfRecord)
 	-- assemble info for all PDF annotations as a list of property records
 	set {pdfAnnotationsList, sourceDOI} to my pdfAnnotationInfo(pdfPath, pdfurl, sourceDOI, sourceCitekey)
 	
+	-- sort all PDF annotations so that they are listed in the order they appear in the document & on the page
+	-- NOTE: by default, PDF annotations seem to be ordered by page & creation date (?)
+	--set pdfAnnotationsList to KeypointsLib's sortList:pdfAnnotationsList byKey:"sortString" inAscendingOrder:true usingSelector:"localizedStandardCompare:"
+	
 	-- set custom metadata fields for the PDF record: DOI & DT link back to the notes folder
 	set pdfMetadata to pdfMetadata & {doi:sourceDOI, pdfannotations:folderURL}
 	my setMetadataForDTRecord(pdfRecord, pdfMetadata)
@@ -442,7 +488,9 @@ on createDEVONthinkNotesForPDF(pdfRecord)
 	repeat with pdfAnnotation in pdfAnnotationsList
 		set aComment to (pdfAnnotation's comment)
 		if aComment is (current application's NSNull's |null|) then set aComment to missing value
-		if aComment is not missing value then set aComment to aComment as string
+		if aComment is not missing value then
+			set aComment to my preprocessAnnotationComment(aComment as string)
+		end if
 		
 		set annotText to (pdfAnnotation's annotText)
 		if annotText is (current application's NSNull's |null|) then set annotText to missing value
@@ -467,7 +515,8 @@ on createDEVONthinkNotesForPDF(pdfRecord)
 		
 		-- record metadata
 		set annotType to (pdfAnnotation's annotType) as string
-		set recordMetadata to bibMetadata & {pdfannotations:folderURL, annotationType:annotType}
+		set annotSortString to (pdfAnnotation's sortString) as string
+		set recordMetadata to bibMetadata & {pdfannotations:folderURL, annotationType:annotType, annotationOrder:annotSortString}
 		
 		set aUserName to (pdfAnnotation's userName)
 		if aUserName is not missing value and aUserName is not "" then set recordMetadata to recordMetadata & {createdBy:(aUserName as string)}
@@ -546,33 +595,45 @@ on pdfAnnotationInfo(pdfPath, pdfurl, sourceDOI, sourceCitekey)
 	
 	-- iterate over each PDF page and process its annotations
 	set pdfAnnotationsArray to current application's NSMutableArray's new()
+	set columnID to 1
 	repeat with i from 0 to ((pdfDoc's |pageCount|()) - 1) -- PDF pages are 0-based in PDFKit
 		set pdfPage to (pdfDoc's pageAtIndex:i)
+		set {pageWidth, pageHeight} to item 2 of (pdfPage's boundsForBox:(current application's kPDFDisplayBoxMediaBox))
+		set columnWidth to (pageWidth - (2 * pageMargin)) / maxTextColumns
 		set pageLabel to pdfPage's label()
 		set pdfannotations to pdfPage's annotations()
+		
 		repeat with pdfAnnotation in pdfannotations
 			set annotType to pdfAnnotation's |type|()
 			
-			if annotType is in {"Highlight", "StrikeOut", "Underline", "Squiggly", "Text"} then
+			if annotType is in {"Highlight", "StrikeOut", "Underline", "Squiggly", "Text", "FreeText"} then
 				if annotType is in {"Highlight", "StrikeOut", "Underline"} then
 					set markupType to pdfAnnotation's markupType()
 				else
 					set markupType to missing value
 				end if
 				
-				-- get the annotation's color
-				set annotColor to pdfAnnotation's |color|()
+				-- TODO: parse & set key/value pairs from dictionary returned by `annotationKeyValues`?
+				--            - `/CreationDate` (example: `/CreationDate:"D:20240810112845Z"`), set by DTTG but not DT/PDFKit on Mac?
+				--            - `/Name` if it contains something more concrete than just "/Note" (example: `/Name:"/Note"`)
+				--set annotKeyDict to pdfAnnotation's annotationKeyValues()
 				
-				-- approximate the name of the annotation's color via the degree of the hue in the HSB (hue, saturation, brightness) color scheme
-				set hueDegree to round ((annotColor's hueComponent() as number) * 360) rounding as taught in school
-				set annotColorName to my colorNameForHue(hueDegree)
+				-- get the annotation's color
+				set {annotColor, annotColorName} to colorForAnnotation(pdfAnnotation)
 				
 				set annotUserName to pdfAnnotation's userName()
 				set annotModDate to pdfAnnotation's modificationDate()
 				
 				set annotBounds to pdfAnnotation's |bounds|()
-				set annotOrigin to first item of annotBounds
-				set {annotPosX, annotPosY} to {first item, second item} of annotOrigin
+				set {annotOriginX, annotOriginY} to first item of annotBounds -- origin
+				set {annotWidth, annotHeight} to second item of annotBounds -- size
+				
+				-- calculate a string identifier that can be used for sorting (so that annotations can be listed in the order they appear in the text of a page)
+				-- NOTE: including a `columnID` allows to better sort annotations in multi-column PDF articles
+				set annotTopMarginFromTop to pageHeight - (annotOriginY + annotHeight) -- in page space, the origin lies at the lower-left corner of the PDF page
+				if respectMultiColumnPDFLayouts is true then set columnID to 1 + (round (annotOriginX / columnWidth) rounding down) -- the identifier of the column containing this annotation's origin
+				set sortString to "" & i + 1 & "-" & columnID & "-" & ¬
+					(round annotTopMarginFromTop rounding as taught in school)
 				
 				-- get the annotation's highlighted text
 				if annotType is in {"Highlight", "StrikeOut", "Underline", "Squiggly"} then
@@ -589,15 +650,10 @@ on pdfAnnotationInfo(pdfPath, pdfurl, sourceDOI, sourceCitekey)
 				set annotURL to pdfurl & ¬
 					"?page=" & i & ¬
 					"&annotation=" & annotType & ¬
-					"&x=" & (annotPosX as integer) & ¬
-					"&y=" & (annotPosY as integer)
+					"&x=" & (annotOriginX as integer) & ¬
+					"&y=" & (annotOriginY as integer)
 				
-				-- TODO: parse & set key/value pairs from dictionary returned by `annotationKeyValues`?
-				--            - `/CreationDate` (example: `/CreationDate:"D:20240810112845Z"`), set by DTTG but not DT/PDFKit on Mac?
-				--            - `/Name` if it contains something more concrete than just "/Note" (example: `/Name:"/Note"`)
-				set annotKeyDict to pdfAnnotation's annotationKeyValues()
-				
-				(pdfAnnotationsArray's addObject:{citekey:sourceCitekey, page:i, pageLabel:pageLabel, annotType:annotType, markupType:markupType, annotColor:annotColor, annotColorName:annotColorName, userName:annotUserName, modifiedDate:annotModDate, annotText:annotText, comment:annotComment, deepLink:annotURL})
+				(pdfAnnotationsArray's addObject:{citekey:sourceCitekey, page:i, pageLabel:pageLabel, annotType:annotType, markupType:markupType, annotColor:annotColor, annotColorName:annotColorName, userName:annotUserName, modifiedDate:annotModDate, annotText:annotText, comment:annotComment, deepLink:annotURL, sortString:sortString})
 			end if
 		end repeat
 	end repeat
@@ -1036,6 +1092,57 @@ on annotationText(pdfPage, boundsByLine)
 end annotationText
 
 
+-- Return's the annotation's color & approximate color name.
+-- Note that the actual return value is a list with two items with the first item being
+-- the annotation's color (specified as a NSColor object) and the second item being
+-- the color's approximate color name (like "red", "blue", "green", etc):
+-- `{annotColor, annotColorName}`
+on colorForAnnotation(pdfAnnotation)
+	if pdfAnnotation is missing value then return {missing value, ""}
+	
+	set annotColor to missing value
+	set annotColorName to ""
+	set annotType to pdfAnnotation's |type|()
+	set annotKeyDict to pdfAnnotation's annotationKeyValues()
+	
+	if (annotType as string) is in {"FreeText"} then
+		set defaultStyle to (annotKeyDict's valueForKey:"/DS") as string -- e.g.: NSString "font-family: Helvetica; font-size: 12pt; color: #FF4015"
+		if defaultStyle is not missing value then
+			set hexColorString to KeypointsLib's regexMatch(defaultStyle, "#[0-9A-F]{6}")
+			if hexColorString is not "" then
+				set {theRed, theGreen, theBlue} to (KeypointsLib's RGBColorFromHexColor:hexColorString)
+				set annotColor to (current application's NSColor's colorWithRed:theRed / 255 green:theGreen / 255 blue:theBlue / 255 alpha:1.0)
+			end if
+		else -- if "/DS" isn't available fallback to "/DA"
+			set defaultAppearance to (annotKeyDict's valueForKey:"/DA") as string -- e.g.: NSString "/Helvetica 12 Tf 1.000 0.251 0.082 rg"
+			if defaultAppearance is not missing value then
+				set colorRegex to ".*? (\\d+\\.\\d+) (\\d+\\.\\d+) (\\d+\\.\\d+).*"
+				if (KeypointsLib's regexMatch(defaultAppearance, colorRegex)) is not "" then
+					set theRed to KeypointsLib's regexReplace(defaultAppearance, colorRegex, "$1")
+					set theGreen to KeypointsLib's regexReplace(defaultAppearance, colorRegex, "$2")
+					set theBlue to KeypointsLib's regexReplace(defaultAppearance, colorRegex, "$3")
+					set annotColor to (current application's NSColor's colorWithRed:theRed green:theGreen blue:theBlue alpha:1.0)
+				end if
+			end if
+		end if
+	else
+		set annotColor to pdfAnnotation's |color|()
+	end if
+	
+	if annotColor is not missing value then
+		if annotColor's colorSpace is not (current application's NSColorSpace's deviceRGBColorSpace()) then
+			set annotColor to (annotColor's colorUsingColorSpace:(current application's NSColorSpace's deviceRGBColorSpace()))
+		end if
+		
+		-- approximate the name of the annotation's color via the degree of the hue in the HSB (hue, saturation, brightness) color scheme
+		set hueDegree to round ((annotColor's hueComponent() as number) * 360) rounding as taught in school
+		set annotColorName to my colorNameForHue(hueDegree)
+	end if
+	
+	return {annotColor, annotColorName}
+end colorForAnnotation
+
+
 -- Converts a list of quadrilateral points to a list of line-based bounds, where each bounds
 -- rectangle specifies the bounding box of an annotation's individual line in page space.
 -- @param quadPoints List of quadrilateral points (as obtained by `pdfAnnotation's quadrilateralPoints()`,
@@ -1095,3 +1202,35 @@ on makeNSRect(aList as list)
 		return missing value
 	end try
 end makeNSRect
+
+
+-- This method serves as a hook which gets called for every annotation with an annotation comment.
+-- It can be used to transform the given annotation comment (which may contain custom markup syntax)
+-- into a Keypoints-style format that's supported by this script.
+on preprocessAnnotationComment(aComment)
+	return aComment -- comment out this line (i.e., prefix it with "--") if you want to use custom code below
+	
+	-- NOTE: below code is just an example that shows how you could transform the given annotation
+	--           comment so that it matches the Keypoints-style format used by this script.
+	
+	-- convert tags
+	-- - input: an annotation comment containing a separate line that starts with “Tags:” followed by
+	--             comma-separated values that represent the tags, e.g.: "Tags: some tag, another tag, test"
+	-- - output: an annotation comment containing a Keypoints-style metadata line with tags,
+	--             e.g.: "< @some tag @another tag @test"
+	set transformedLines to {}
+	set tagsLineRegex to "(?<=^|[\\r\\n])Tags:\\s*"
+	set tagDelimiterRegex to "(?<=^<|[\\r\\n]<)\\s+|\\s*,\\s*"
+	
+	repeat with aLine in paragraphs of aComment
+		if (KeypointsLib's regexMatch(aLine, tagsLineRegex)) is not "" then
+			set aLine to KeypointsLib's regexReplace(aLine, tagsLineRegex, "< ")
+			set aLine to KeypointsLib's regexReplace(aLine, tagDelimiterRegex, " @")
+		end if
+		copy aLine as text to end of transformedLines
+	end repeat
+	
+	set transformedString to KeypointsLib's mergeTextItems(transformedLines, linefeed) & linefeed
+	
+	return transformedString
+end preprocessAnnotationComment

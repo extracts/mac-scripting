@@ -34,7 +34,7 @@ If you've placed your script into the DEVONthink Scripts folder, you may also ap
 
 ## Setup
 
-Before running the script, do this once: Open the script in Script Editor and adjust the DEVONthink label <-> color mapping via the properties `label1` ... `label7`, then save the script again.
+Before running the script, do this once: Open the script in Script Editor and adjust the DEVONthink label <-> color mapping via the properties `label1` ... `label7`, then save the script again. If saving generates an error, please try again with [Script Debugger](https://latenightsw.com/sd8/download/) (which has a free "lite" mode).
 
 You may also want to check out some of the other script properties as these allow to customize the script, e.g. to enable updating of existing notes or automatic fetching of BibTeX data.
 
@@ -48,6 +48,14 @@ To run the script, select its menu entry from the (DEVONthink or system's) Scrip
 After the script has finished, you'll see a dialog with feedback on how many PDFs have been processed and how many note records have been created/updated. For each PDF, its annotation notes are stored within a DEVONthink group next to the PDF.
 
 Note that you can run the script multiple times with the same PDF record(s) selected in DEVONthink. On a subsequent run of the script, all notes that were newly created (or updated) will be selected.
+
+
+## Discussion & Help:
+
+If you have further questions or issues w.r.t. this script, or want to discuss or request any features, you may do so in either of these forums:
+
+- https://discourse.devontechnologies.com/t/script-to-create-individual-markdown-notes-from-pdf-annotations/80987
+- https://github.com/extracts/mac-scripting/discussions
 
 
 ## Requirements
@@ -75,6 +83,12 @@ For more info, please see [MIT license](https://github.com/extracts/mac-scriptin
 
 
 ## Release Notes
+
+### v1.2
+
+* The script will now recognize & import PDF annotations of type "FreeText". Unlike ordinary text annotations that are displayed in a pop-up window, free text annotations are always visible.
+* For each Markdown record, the script will now add a sort identifier string to an `annotationorder` custom metadata field. This metadata field can be used in DEVONthink to sort annotations in the order they appear in the text of a PDF page.
+* Added hook method `preprocessAnnotationComment()` which gets called for every annotation with an annotation comment. This can be used to preprocess & transform the given annotation comment (which may contain [custom markup syntax](https://discourse.devontechnologies.com/t/script-to-create-individual-markdown-notes-from-pdf-annotations/80987/10)) into a Keypoints-style format that's supported by this script.
 
 ### v1.1
 
