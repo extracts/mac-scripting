@@ -1,5 +1,5 @@
 -- Keypoints Scripting Lib
--- version 1.4, licensed under the MIT license
+-- version 1.5, licensed under the MIT license
 
 -- by Matthias Steffens, keypoints.app, mat(at)extracts(dot)de
 
@@ -294,6 +294,7 @@ on itemsFromList:theList matchingRegex:theRegex negateResults:negateResults
 end itemsFromList:matchingRegex:negateResults:
 
 -- Combines all items of the sublists in the given list into a single list.
+-- @see For a pure AppleScript method to flatten a nested list, see `flattenList()` below.
 on unionOfListsInList:theList
 	set theArray to current application's NSArray's arrayWithArray:theList
 	set unionOfArrays to (theArray's valueForKeyPath:"@unionOfArrays.self")
@@ -428,6 +429,50 @@ on valueListForXPath:theXPath fromXMLAt:POSIXPath
 	set theStringValues to theNodeValues's valueForKey:"stringValue"
 	return theStringValues as list
 end valueListForXPath:fromXMLAt:
+
+
+-- JSON
+
+-- Reads JSON data from the given .json file and returns the JSON data as a record,
+-- or a list if the JSON root element is an array. Returns missing value if the JSON
+-- data could not be parsed successfully.
+-- @param aFilePOSIXPath POSIX path of the .json file to be parsed.
+-- Credits: modified after script code by users alldritt, ComplexPoint & ShaneStanley @ https://forum.latenightsw.com/t/reading-json-data-with-nsjsonserialization/958
+on readJSONFromFileAtPath(aFilePOSIXPath)
+	set aFilePOSIXPath to my expandAbbreviatedFilePath(aFilePOSIXPath)
+	if my fileExistsAtFilePath(aFilePOSIXPath) is false then return missing value
+	
+	set theJSONData to current application's NSData's dataWithContentsOfFile:aFilePOSIXPath
+	set {theJSON, parseError} to current application's NSJSONSerialization's JSONObjectWithData:theJSONData options:0 |error|:(reference)
+	
+	if theJSON is missing value then
+		return missing value
+	else if theJSON's isKindOfClass:(current application's NSDictionary) then
+		return theJSON as record
+	else
+		return theJSON as list
+	end if
+end readJSONFromFileAtPath
+
+-- Reads the given JSON string and returns the parsed JSON data as a record,
+-- or a list if the JSON root element is an array. Returns missing value if the JSON
+-- data could not be parsed successfully.
+-- @param jsonString The JSON string to be parsed.
+-- Credits: modified after script code by users alldritt, ComplexPoint & ShaneStanley @ https://forum.latenightsw.com/t/reading-json-data-with-nsjsonserialization/958
+on readJSONFromString(jsonString)
+	if jsonString is missing value or jsonString is "" then return missing value
+	
+	set theJSONData to (current application's NSString's stringWithString:jsonString)'s dataUsingEncoding:(current application's NSUTF8StringEncoding)
+	set {theJSON, parseError} to current application's NSJSONSerialization's JSONObjectWithData:theJSONData options:0 |error|:(reference)
+	
+	if theJSON is missing value then
+		return missing value
+	else if theJSON's isKindOfClass:(current application's NSDictionary) then
+		return theJSON as record
+	else
+		return theJSON as list
+	end if
+end readJSONFromString
 
 
 -- PDF
@@ -623,6 +668,353 @@ on doiFromPDF(pdfPath, pdfDoc, scanFirstPage)
 end doiFromPDF
 
 
+-- PDF ANNOTATIONS
+
+-- Decimal numbers that specify how much the bounding box encompassing an annotation's
+-- individual line shall be enlarged vertically & horizontally so that it fully covers all text
+-- highlighted on that line.
+-- If you find that this script somehow fails to fully extract all of an annotation's text (or if
+-- it extracts too much) then you may want to adjust these decimal numbers (e.g. by 0.1
+-- increments).
+-- However, note that larger values will increase the likeliness that adjacent characters not
+-- belonging to the annotation will get included as well.
+property lineWidthEnlargement : 0.7
+property lineHeightEnlargement : 1.7
+
+-- Defines lower and upper hue limits for common colors. Limit values are inclusive and must be
+-- given as degrees (0-359) of the hue in the HSB (hue, saturation, brightness) color scheme.
+property redColorMapping : {colorName:"red", lowerHueLimit:350, upperHueLimit:19}
+property orangeColorMapping : {colorName:"orange", lowerHueLimit:20, upperHueLimit:44}
+property yellowColorMapping : {colorName:"yellow", lowerHueLimit:45, upperHueLimit:65}
+property greenColorMapping : {colorName:"green", lowerHueLimit:66, upperHueLimit:164}
+property cyanColorMapping : {colorName:"cyan", lowerHueLimit:165, upperHueLimit:184}
+property lightBlueColorMapping : {colorName:"light blue", lowerHueLimit:185, upperHueLimit:209}
+property darkBlueColorMapping : {colorName:"dark blue", lowerHueLimit:210, upperHueLimit:254}
+property purpleColorMapping : {colorName:"purple", lowerHueLimit:255, upperHueLimit:324}
+property pinkColorMapping : {colorName:"pink", lowerHueLimit:325, upperHueLimit:349}
+
+property colorMappings : {redColorMapping, orangeColorMapping, yellowColorMapping, greenColorMapping, cyanColorMapping, lightBlueColorMapping, darkBlueColorMapping, purpleColorMapping, pinkColorMapping}
+
+-- Set to `true` if you want this script to associate annotations to text columns in multi-column
+-- PDF layouts when generating sort identifiers.
+-- Sort identifiers can be used for sorting so that annotations are listed in the order they appear
+-- in the text of a page (optionally respecting a multi-column layout).
+-- Sort identifier format: `<PAGE>-<COLUMN>-<POSITION_FROM_TOP>` (e.g. "2-1-207").
+-- If this property is set to `false`, `<COLUMN>` will be always "1".
+-- Note that, depending on the layout of the PDF page and the specific annotation's width,
+-- correctly guessing the annotation's text column may still fail.
+property respectMultiColumnPDFLayouts : true
+
+-- The number of text columns supported by this script when generating sort identifiers.
+-- If you're often dealing with PDF text layouts that have more than the specified number of text
+-- columns then you may want to adjust this integer number. However, note that larger values
+-- will increase the likeliness that short annotations or annotations from document parts
+-- spanning multiple columns (like the abstract) won't sort correctly.
+property maxTextColumns : 2
+
+-- Approximate average width of the (left or right) white space between text & page origin/end.
+-- Note that this is just a wild guess for the average margin of a PDF page as properly calculating
+-- margins isn't straightforward. However, specifying some value for an average margin usually
+-- helps when trying to associate annotations to text columns in multi-column PDF layouts.
+property pageMargin : 20
+
+-- For the PDF at the given file path, returns a list of records (where each record contains
+-- info about one of its PDF annotations) as well as any DOI extracted from the PDF
+-- metadata or its first page.
+-- @param pdfPath The POSIX path to the PDF file on disk.
+-- @param pdfurl The URL of the PDF (may be empty). This URL may be a http(s)://
+-- URL or use an app's custom URL scheme. As an example for the latter, you could
+-- pass the `x-devonthink-item://...` URL of the corresponding PDF record in
+-- DEVONthink. In case of a `x-devonthink-item://...` URL, this method will also
+-- append annotation info (page no., annotation type & x/y position) via parameters
+-- to the given URL.
+-- @param sourceDOI The DOI of the publication represented by the PDF (may be
+-- empty).
+-- @param sourceCitekey The citekey of the publication represented by the PDF (may
+-- be empty).
+-- Note that the actual return value is a list with two items with the first item being the
+-- list of annotation info records and the second item being a string value containing the
+-- given DOI, or the DOI extracted from PDF metadata/first page, or else an empty string:
+-- `{pdfAnnotationsArray, sourceDOI}`
+-- Credits: this method was inspired by a script by mdbraber
+-- See https://discourse.devontechnologies.com/t/stream-annotations-from-your-pdf-reading-sessions-with-devonthink/70727/30
+on pdfAnnotationInfo(pdfPath, pdfurl, sourceDOI, sourceCitekey)
+	if my fileExistsAtFilePath(pdfPath) is false then return {{}, sourceDOI}
+	if type identifier of (info for pdfPath) is not "com.adobe.pdf" then return {{}, sourceDOI}
+	
+	set pdfDoc to current application's PDFDocument's alloc()'s initWithURL:(current application's |NSURL|'s fileURLWithPath:pdfPath)
+	if pdfDoc is missing value then return {{}, sourceDOI}
+	
+	-- if there's no given DOI yet, try to get any DOI from PDF metadata or first PDF page
+	if sourceDOI is "" then
+		set pdfDOI to my doiFromPDF(pdfPath, pdfDoc, true)
+		if pdfDOI is not "" then
+			set sourceDOI to pdfDOI
+		end if
+	end if
+	
+	-- iterate over each PDF page and process its annotations
+	set pdfAnnotationsArray to current application's NSMutableArray's new()
+	set columnID to 1
+	repeat with i from 0 to ((pdfDoc's |pageCount|()) - 1) -- PDF pages are 0-based in PDFKit
+		set pdfPage to (pdfDoc's pageAtIndex:i)
+		set {pageWidth, pageHeight} to item 2 of (pdfPage's boundsForBox:(current application's kPDFDisplayBoxMediaBox))
+		set columnWidth to (pageWidth - (2 * pageMargin)) / maxTextColumns
+		set pageLabel to pdfPage's label()
+		set pdfannotations to pdfPage's annotations()
+		
+		repeat with pdfAnnotation in pdfannotations
+			set annotType to pdfAnnotation's |type|()
+			
+			if annotType is in {"Highlight", "StrikeOut", "Underline", "Squiggly", "Text", "FreeText"} then
+				if annotType is in {"Highlight", "StrikeOut", "Underline"} then
+					set markupType to pdfAnnotation's markupType()
+				else
+					set markupType to missing value
+				end if
+				
+				-- get the annotation's color
+				set annotColor to my colorForAnnotation(pdfAnnotation)
+				set annotColorName to my colorNameForColor(annotColor)
+				
+				-- get the annotation's creator name as well as its modification & creation dates
+				set annotUserName to pdfAnnotation's userName()
+				set annotModDate to pdfAnnotation's modificationDate()
+				if annotModDate is (current application's NSNull's |null|) then set annotModDate to current application's NSDate's |date|() -- use current date if no modification date is specified
+				
+				-- parse & set key/value pairs from dictionary returned by `annotationKeyValues`
+				-- TODO: parse `/Name` if it contains something more concrete than just "/Note" (example: `/Name:"/Note"`)
+				set annotKeyDict to pdfAnnotation's annotationKeyValues()
+				set annotCreatedDateString to (annotKeyDict's valueForKey:"/CreationDate") as string -- e.g.: `/CreationDate:"D:20240810112845Z"`, set by DTTG but not DT/PDFKit on Mac?
+				if annotCreatedDateString is not missing value then
+					set annotCreatedDate to my dateFromPDFDate(annotCreatedDateString, annotModDate as date)
+				else
+					set annotCreatedDate to annotModDate
+				end if
+				
+				-- get annotation bounds
+				set annotBounds to pdfAnnotation's |bounds|()
+				set {annotOriginX, annotOriginY} to first item of annotBounds -- origin
+				set {annotWidth, annotHeight} to second item of annotBounds -- size
+				
+				-- calculate a string identifier that can be used for sorting (so that annotations can be listed in the order they appear in the text of a page)
+				-- NOTE: including a `columnID` allows to better sort annotations in multi-column PDF articles
+				set annotTopMarginFromTop to round (pageHeight - (annotOriginY + annotHeight)) rounding as taught in school -- in page space, the origin lies at the lower-left corner of the PDF page
+				if respectMultiColumnPDFLayouts is true then set columnID to 1 + (round (annotOriginX / columnWidth) rounding down) -- the identifier of the column containing this annotation's origin
+				set sortString to "" & i + 1 & "-" & columnID & "-" & annotTopMarginFromTop
+				
+				-- get the annotation's highlighted text
+				if annotType is in {"Highlight", "StrikeOut", "Underline", "Squiggly"} then
+					set quadPoints to pdfAnnotation's quadrilateralPoints()
+					set boundsByLine to my annotationBoundsByLine(quadPoints, annotBounds)
+					set annotText to my annotationText(pdfPage, boundsByLine)
+				else
+					set annotText to ""
+				end if
+				
+				set annotComment to pdfAnnotation's |contents|()
+				
+				-- for a DEVONthink URL, create a deep link for this annotation
+				set annotURL to pdfurl
+				if annotURL is not "" and annotURL is not missing value and annotURL starts with "x-devonthink-item://" then
+					set annotURL to pdfurl & ¬
+						"?page=" & i & ¬
+						"&annotation=" & annotType & ¬
+						"&x=" & (annotOriginX as integer) & ¬
+						"&y=" & (annotOriginY as integer)
+				end if
+				
+				(pdfAnnotationsArray's addObject:{citekey:sourceCitekey, page:i, pageLabel:pageLabel, annotType:annotType, markupType:markupType, annotColor:annotColor, annotColorName:annotColorName, userName:annotUserName, createdDate:annotCreatedDate, modifiedDate:annotModDate, annotText:annotText, comment:annotComment, deepLink:annotURL, sortString:sortString, positionFromTop:annotTopMarginFromTop})
+			end if
+		end repeat
+	end repeat
+	
+	return {pdfAnnotationsArray as list, sourceDOI}
+end pdfAnnotationInfo
+
+-- Return's the PDF annotation's color as a NSColor object, or returns `missing value`
+-- if the annotation's color could not be determined.
+-- Note that this method currently only supports these annotation types:
+--  "Highlight", "StrikeOut", "Underline", "Squiggly", "Text" & "FreeText"
+-- @param pdfAnnotation The PDFAnnotation object that shall be processed.
+on colorForAnnotation(pdfAnnotation)
+	if pdfAnnotation is missing value then return missing value
+	
+	set annotColor to missing value
+	set annotType to pdfAnnotation's |type|()
+	set annotKeyDict to pdfAnnotation's annotationKeyValues()
+	
+	if (annotType as string) is in {"FreeText"} then
+		set defaultStyle to (annotKeyDict's valueForKey:"/DS") as string -- e.g.: NSString "font-family: Helvetica; font-size: 12pt; color: #FF4015"
+		if defaultStyle is not missing value then
+			set hexColorString to my regexMatch(defaultStyle, "#[0-9A-F]{6}")
+			if hexColorString is not "" then
+				set {theRed, theGreen, theBlue} to (my RGBColorFromHexColor:hexColorString)
+				set annotColor to (current application's NSColor's colorWithRed:theRed / 255 green:theGreen / 255 blue:theBlue / 255 alpha:1.0)
+			end if
+		else -- if "/DS" isn't available fallback to "/DA"
+			set defaultAppearance to (annotKeyDict's valueForKey:"/DA") as string -- e.g.: NSString "/Helvetica 12 Tf 1.000 0.251 0.082 rg"
+			if defaultAppearance is not missing value then
+				set colorRegex to ".*? (\\d+\\.\\d+) (\\d+\\.\\d+) (\\d+\\.\\d+).*"
+				if (my regexMatch(defaultAppearance, colorRegex)) is not "" then
+					set theRed to my regexReplace(defaultAppearance, colorRegex, "$1")
+					set theGreen to my regexReplace(defaultAppearance, colorRegex, "$2")
+					set theBlue to my regexReplace(defaultAppearance, colorRegex, "$3")
+					set annotColor to (current application's NSColor's colorWithRed:theRed green:theGreen blue:theBlue alpha:1.0)
+				end if
+			end if
+		end if
+	else
+		set annotColor to pdfAnnotation's |color|()
+	end if
+	
+	return annotColor
+end colorForAnnotation
+
+-- Attempts to extract the annotation's text from its line-based bounds rectangles.
+-- @param pdfPage PDFPage object which hosts the PDF annotation and its text.
+-- @param boundsByLine List of line-based bounds, where each bounds rectangle
+-- specifies the bounding box of an annotation's individual line in page space.
+on annotationText(pdfPage, boundsByLine)
+	set textByLine to {}
+	
+	repeat with theBounds in boundsByLine
+		set pdfSelection to (pdfPage's selectionForRect:theBounds)
+		set lineText to pdfSelection's |string|()
+		
+		if lineText is not (current application's NSNull's |null|) and lineText is not missing value and lineText is not "" then
+			-- replace any trailing whitespace or "\n" at the end of a line with a single space
+			set lineText to my regexReplace(lineText as string, "(\\s+|\\\\n)$", " ")
+			
+			-- assume that a hyphen (and optional space) at the end of a line indicates a word hyphenation
+			-- NOTE: while this assumption is often correct, it's not always true so it may incorrectly merge
+			--           hyphenated words
+			set lineText to my regexReplace(lineText, "- $", "")
+			
+			copy lineText to end of textByLine
+		end if
+	end repeat
+	
+	return my mergeTextItems(textByLine, "")
+end annotationText
+
+-- Converts a list of quadrilateral points to a list of line-based bounds, where each bounds
+-- rectangle specifies the bounding box of an annotation's individual line in page space.
+-- @param quadPoints List of quadrilateral points (as obtained by `pdfAnnotation's quadrilateralPoints()`,
+-- with each point wrapped as NSValue object) where each quadrilateral (i.e., a group of four consecutive
+-- points ordered in Z-form {topLeft, topRight, bottomLeft, bottomRight} so that points with higher
+-- y-values come first) encircles a line of text to be highlighted. The coordinates of each point are relative
+-- to the bound’s origin of the markup annotation.
+-- @param annotationBounds The bounding box for the annotation in page space (which is a 72 dpi
+-- coordinate system with the origin at the lower-left corner of the PDF page), as obtained by
+-- `pdfAnnotation's |bounds|()`.
+on annotationBoundsByLine(quadPoints, annotationBounds)
+	set theOrigin to first item of annotationBounds -- a point specified as a list of x/y positions: {xPos, YPos}
+	set boundsByLine to {}
+	set maxQuadCount to (count of quadPoints) / 4
+	set quadCount to 1
+	
+	-- iterate over each quadrilateral (4 points: topLeft, topRight, bottomLeft, bottomRight) representing an
+	-- annotation line and get its bounds in page space
+	repeat maxQuadCount times
+		-- get the top left & bottom right quad points for this annotation line
+		set topLeftPoint to (item quadCount of quadPoints)'s pointValue()
+		set bottomRightPoint to (item (quadCount + 3) of quadPoints)'s pointValue()
+		
+		-- convert each quad point (whose coordinates are relative to the bound’s origin of the markup
+		-- annotation) to page space (where the origin lies at the lower-left corner of the PDF page)
+		-- NOTE: w/o the adjustment of values, the rectangle would be too small to match underlying text
+		set x of topLeftPoint to (x of topLeftPoint) + (first item of theOrigin) - lineWidthEnlargement
+		set y of topLeftPoint to (y of topLeftPoint) + (second item of theOrigin) + lineHeightEnlargement
+		
+		set x of bottomRightPoint to (x of bottomRightPoint) + (first item of theOrigin) + lineWidthEnlargement
+		set y of bottomRightPoint to (y of bottomRightPoint) + (second item of theOrigin) - lineHeightEnlargement
+		
+		-- create a bounds rectangle (specified by origin {x,y} & size {width,height}) for this annotation line
+		set lineBounds to my makeNSRect({{x of topLeftPoint, y of topLeftPoint}, {x of bottomRightPoint, y of bottomRightPoint}})
+		copy lineBounds to end of boundsByLine
+		
+		set quadCount to quadCount + 4
+	end repeat
+	
+	return boundsByLine
+end annotationBoundsByLine
+
+-- Takes a a rectangle specified via its top left & bottom right points (given as a list of lists:
+-- {{topLeftX, topLeftY}, {bottomRightX, bottomRightY}}) and converts it to a bounds rectangle
+-- given as a record with `origin` & `size` properties each containing again a record:
+-- {origin:{x:topLeftX, y:topLeftY}, |size|:{width:bottomRightX-topLeftX, height:bottomRightY-topLeftY}} 
+-- Credits: by Takaaki Naganoya, Piyomaru Software (see http://piyocast.com/as/archives/643)
+on makeNSRect(aList as list)
+	try
+		copy aList to {{x1, y1}, {x2, y2}}
+		set xWidth to (x2 - x1)
+		set yHeight to (y2 - y1) -- TODO: doesn't this create a negative height? use `y1 - y2` instead?
+		set a1Rect to {origin:{x:x1, y:y1}, |size|:{width:xWidth, height:yHeight}}
+		return a1Rect
+	on error
+		return missing value
+	end try
+end makeNSRect
+
+
+-- DATES
+
+-- Converts a "PDF date" (like "D:20241231235959Z") into an AppleScript date & returns it.
+-- The PDF standard uses a date format that closely follows the international standard ASN.1
+-- (Abstract Syntax Notation One), defined in ISO/IEC 8824. An ASN.1-formatted "PDF date"
+-- may, for example, occur as the value of the `/CreationDate` dictionary entry in an annotation
+-- dictionary for a markup annotation.
+-- @param pdfDateString The ASN.1-formatted "PDF date" to be parsed.
+-- @param fallbackDate An AppleScript date whose date components will be used for components
+-- that are undefined in the given PDF date.
+on dateFromPDFDate(pdfDateString, fallbackDate)
+	if fallbackDate is not missing value then
+		set aDate to fallbackDate
+	else
+		set aDate to current date
+	end if
+	
+	set pdfDateRegex to "^(?:D:)?(\\d{4})(\\d{2})?(\\d{2})?(\\d{2})?(\\d{2})?(\\d{2})?.*"
+	
+	set pdfDateYear to (my regexReplace(pdfDateString, pdfDateRegex, "$1"))
+	if length of pdfDateYear = 4 then set year of aDate to pdfDateYear
+	
+	set pdfDateMonth to (my regexReplace(pdfDateString, pdfDateRegex, "$2"))
+	if length of pdfDateMonth = 2 then set month of aDate to pdfDateMonth
+	
+	set pdfDateDay to (my regexReplace(pdfDateString, pdfDateRegex, "$3"))
+	if length of pdfDateDay = 2 then set day of aDate to pdfDateDay
+	
+	set pdfDateHours to (my regexReplace(pdfDateString, pdfDateRegex, "$4"))
+	if length of pdfDateHours = 2 then set hours of aDate to pdfDateHours
+	
+	set pdfDateMinutes to (my regexReplace(pdfDateString, pdfDateRegex, "$5"))
+	if length of pdfDateMinutes = 2 then set minutes of aDate to pdfDateMinutes
+	
+	set pdfDateSeconds to (my regexReplace(pdfDateString, pdfDateRegex, "$6"))
+	if length of pdfDateSeconds = 2 then set seconds of aDate to pdfDateSeconds
+	
+	-- NOTE: In a "PDF date", a trailing letter Z signifies that local time is equal to UT.
+	-- However, some PSPDFKit(?) apps (like DEVONthink To Go) use this format with
+	-- UTC dates. In any case, the below line may not be correct.
+	if pdfDateString ends with "Z" then set aDate to aDate + (time to GMT)
+	
+	return aDate
+end dateFromPDFDate
+
+-- Converts the given NSDate object into a corresponding AppleScript date and returns it.
+-- @param nsDate The NSDate object to be converted into an AppleScript date.
+-- Credits: modified after script code by user Shane_Stanley @ https://www.macscripter.net/t/working-with-nsdate-objects-as-readable-as-values/56336/19
+-- @see also https://forum.latenightsw.com/t/converting-dates/878
+on dateFromNSDate(NSDate)
+	set theDiff to NSDate's timeIntervalSinceReferenceDate()
+	set referenceDateString to "01/01/2001 00:00:00"
+	set asDate to (date referenceDateString) + theDiff div 1 + (time to GMT)
+	return asDate
+end dateFromNSDate
+
+
 -- DATA
 
 -- Credits: Data conversion methods by Shane Stanley, see https://forum.latenightsw.com/t/convert-nsdata-into-raw-data-string/1914/4
@@ -670,6 +1062,47 @@ on addTags:tagList forPath:POSIXPath
 	end if
 	theURL's setResourceValue:tagList forKey:(current application's NSURLTagNamesKey) |error|:(missing value)
 end addTags:forPath:
+
+
+-- COLOR
+
+-- Returns the name of the approximate color (like "red", "blue", "green", etc) for the
+-- given NSColor object.
+-- @param aColor NSColor object whose color name shall be determined.
+on colorNameForColor(aColor)
+	if aColor is missing value then return ""
+	
+	set colorName to ""
+	
+	if aColor's colorSpace is not (current application's NSColorSpace's deviceRGBColorSpace()) then
+		set aColor to (aColor's colorUsingColorSpace:(current application's NSColorSpace's deviceRGBColorSpace()))
+	end if
+	
+	-- approximate the name of the annotation's color via the degree of the hue in the HSB (hue, saturation, brightness) color scheme
+	set hueDegree to round ((aColor's hueComponent() as number) * 360) rounding as taught in school
+	set colorName to my colorNameForHue(hueDegree)
+	
+	return colorName
+end colorNameForColor
+
+-- Returns the name of the approximate color (like "red", "blue", "green", etc) for the
+-- given hue degree.
+-- @param hueDegree A color's hue component given as a degree (0-359) of the hue 
+-- in the HSB (hue, saturation, brightness) color scheme.
+on colorNameForHue(hueDegree)
+	set colorName to ""
+	
+	repeat with colorMapping in colorMappings
+		if hueDegree ≥ colorMapping's lowerHueLimit and hueDegree ≤ colorMapping's upperHueLimit then
+			set colorName to colorMapping's colorName
+		end if
+	end repeat
+	if colorName is "" and (hueDegree ≥ colorMapping's lowerHueLimit or hueDegree ≤ colorMapping's upperHueLimit) then
+		set colorName to redColorMapping's colorName
+	end if
+	
+	return colorName
+end colorNameForHue
 
 
 -- COLOR CONVERSIONS
@@ -973,15 +1406,20 @@ on keypointsNoteWithoutMetadataLines(aNote, trimWhitespace)
 end keypointsNoteWithoutMetadataLines
 
 -- Returns a Keypoints-style ID that represents the given date
+-- @param aDate The date to be represented by the returned Keypoints-style ID.
+-- @param centiSeconds A number between 0 and 99 to be used when adding millisecond precision.
+-- Specify 0 to add some randomly generated milliseconds to the given date. Any number between
+-- 1 and 99 will be appended with 0 to form a fixed number of milliseconds (i.e., 1 -> 010, 99 -> 990).
 -- Notes:
--- – The Keypoints ID is based on the given date's date ID (formatted like `yyyyMMddHHmmss`) with added
---    millisecond precision, converted to its reverse & Base32-encoded form (after Crockford)
+-- – The Keypoints ID is based on the given date's date ID (formatted like `yyyyMMddHHmmss`) with
+--    added millisecond precision, converted to its reverse & Base32-encoded form (after Crockford)
 -- – The millisecond precision helps to prevent collisions on automated ID generation.
--- – The Base32 encoding and adding of separator hyphens helps to keep IDs somewhat shorter but still legible/recognizable.
--- – Example: For a date ID like `20240812112216540`, this method will return this Keypoints ID: 041M-D06B-A1XA
+-- – The Base32 encoding and adding of separator hyphens helps to keep IDs somewhat shorter but still
+--    legible/recognizable. Example: For a date ID like `20240812112216540`, this method will return
+--    this Keypoints ID: 041M-D06B-A1XA
 -- – See http://www.crockford.com/wrmg/base32.html
-on keypointsIDForDate(aDate)
-	set dateID to my keypointsDateIDForDate(aDate, true)
+on keypointsIDForDate(aDate, centiSeconds)
+	set dateID to my keypointsDateIDForDate(aDate, centiSeconds)
 	set reversedDateID to reverse of dateID's items as text
 	set keypointsID to text -14 thru -1 of ("0000000000000" & my base32EncodeCrockford(reversedDateID))
 	
@@ -990,9 +1428,12 @@ end keypointsIDForDate
 
 -- Returns a Keypoints-style date ID that represents the given date with some added milliseconds.
 -- Keypoints date IDs are formatted like `yyyyMMddHHmmss...` with `...` replaced by the added milliseconds.
--- For the milliseconds, if `randomizeMilliSeconds` is `false`, a default value of "100" will be used. If instead
--- `randomizeMilliSeconds` is `true`, a random increment of 10 (between 010 and 990) will be added.
-on keypointsDateIDForDate(aDate, randomizeMilliSeconds)
+-- @param aDate The date to be represented by the returned Keypoints date ID.
+-- @param centiSeconds A number between 0 and 99 to be used when adding millisecond precision. If
+-- you specify a number >99 only its last two digits will be used. Specify 0 to add a random increment
+-- of 10 (between 010 and 990 milliseconds) to the given date. Any other number will be appended
+-- with 0 to form a fixed number of milliseconds (examples: 1 -> 010, 99 -> 990, 123 -> 230).
+on keypointsDateIDForDate(aDate, centiSeconds)
 	set dateFormatter to current application's NSDateFormatter's alloc()'s init
 	
 	-- set a fixed locale & time zone as recommended in "NSDateFormatter > Working With Fixed Format Date Representations":
@@ -1006,15 +1447,14 @@ on keypointsDateIDForDate(aDate, randomizeMilliSeconds)
 	set dateIDFormat to "yyyyMMddHHmmss"
 	
 	-- add a (randomized or default) value for milliseconds
-	if randomizeMilliSeconds is true then
+	if centiSeconds is 0 or centiSeconds is "0" then
 		-- NOTE: If we'd used random numbers between 1 and 999, the `base32EncodeCrockford()` method would sometimes return
 		--           an encoded string that, when converted back, may be off by 1 (or more) (due to calculation precision errors?).
 		--           This issue gets worse since we feed `base32EncodeCrockford()` with a reversed date ID. To avoid this issue, we keep
-		--           the last digit as "0".
-		set milliSec to (text -2 thru -1 of ("0" & (random number from 1 to 99 with seed 0))) & "0"
-	else
-		set milliSec to "100"
+		--           the last millisecond digit as "0".
+		set centiSeconds to (random number from 1 to 99 with seed 0)
 	end if
+	set milliSec to (text -2 thru -1 of ("0" & centiSeconds)) & "0"
 	
 	set dateFormatter's dateFormat to dateIDFormat & milliSec
 	
@@ -1107,13 +1547,22 @@ end deleteFolderContents
 -- Returns `true` if the file (or folder) at the given POSIX path exists, otherwise returns `false`.
 on fileExistsAtFilePath(aFilePOSIXPath)
 	if aFilePOSIXPath is missing value or aFilePOSIXPath is "" then return false
-	if aFilePOSIXPath starts with "~/" then set aFilePOSIXPath to (POSIX path of (path to home folder)) & characters 3 thru -1 of aFilePOSIXPath
+	set aFilePOSIXPath to my expandAbbreviatedFilePath(aFilePOSIXPath)
 	set theFile to POSIX file aFilePOSIXPath
 	tell application "Finder"
 		set fileExists to (exists theFile)
 	end tell
 	return fileExists
 end fileExistsAtFilePath
+
+-- If the given file path has an abbreviated form (i.e., it starts with a tilde character indicating
+-- the user's home directory, e.g. "~/Downloads"), transforms the path into a full file path and
+-- returns it. Otherwise, the given path is returned unchanged.
+-- @param aFilePOSIXPath POSIX file path in full or abbreviated form.
+on expandAbbreviatedFilePath(aFilePOSIXPath)
+	if aFilePOSIXPath starts with "~/" then set aFilePOSIXPath to (POSIX path of (path to home folder)) & characters 3 thru -1 of aFilePOSIXPath
+	return aFilePOSIXPath
+end expandAbbreviatedFilePath
 
 -- Returns the file name of the file at the given POSIX file path. The file at the given path must exist.
 on fileNameFromFilePath(aFilePOSIXPath)
@@ -1173,6 +1622,39 @@ on mergeTextItems(textItemList, aSeparator)
 	return mergedText
 end mergeTextItems
 
+-- Displays given message as a notification. Any of the parameters
+-- may be empty.
+on displayNotification(theMessage, theTitle, theSubtitle)
+	if theMessage is missing value then set theMessage to ""
+	
+	if theTitle is not missing value and theTitle is not "" then
+		if theSubtitle is not missing value and theSubtitle is not "" then
+			display notification theMessage with title theTitle subtitle theSubtitle
+		else
+			display notification theMessage with title theTitle
+		end if
+	else
+		if theSubtitle is not missing value and theSubtitle is not "" then
+			display notification theMessage subtitle theSubtitle
+		else
+			display notification theMessage
+		end if
+	end if
+end displayNotification
+
+-- Displays a message alert.
+on displayMessage(theMessage, theDetails, isWarning, dismissAfter)
+	-- NOTE: opposed to "critical", the alert types "warning" & "informational" don't seem to influence the dialog icon
+	set alertType to informational
+	if isWarning is true then set alertType to warning
+	
+	if dismissAfter > 0 then
+		display alert theMessage message theDetails as alertType buttons {"OK"} default button "OK" giving up after dismissAfter
+	else
+		display alert theMessage message theDetails as alertType buttons {"OK"} default button "OK"
+	end if
+end displayMessage
+
 -- Displays an error alert.
 on displayError(errorMessage, errorDetails, dismissAfter, cancelScriptExecution)
 	display alert errorMessage message errorDetails as critical buttons {"OK"} default button "OK" giving up after dismissAfter
@@ -1225,6 +1707,27 @@ on pasteIntoFrontApp()
 		end tell
 	end tell
 end pasteIntoFrontApp
+
+-- Flattens a nested list and returns it
+-- Credits: modified after script code by users bmose, Nigel_Garvey & robertfern @ macscripter.net (see https://www.macscripter.net/t/flattening-a-list-of-nested-sublists/72172)
+on flattenList(theList) -- non-recursive
+	script util
+		property flattenedList : theList
+		property interimFlattenedList : missing value
+	end script
+	repeat while (count util's flattenedList's lists) > 0
+		set util's interimFlattenedList to {}
+		repeat with currItem in util's flattenedList
+			if (class of currItem) = list then
+				set util's interimFlattenedList to util's interimFlattenedList & currItem's contents
+			else
+				set end of util's interimFlattenedList to currItem's contents
+			end if
+		end repeat
+		set util's flattenedList to util's interimFlattenedList
+	end repeat
+	return util's flattenedList -- "as list" assures that the return value is dereferenced
+end flattenList
 
 
 -- ----------------------------------------------------------------------------

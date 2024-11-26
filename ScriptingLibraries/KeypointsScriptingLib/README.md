@@ -33,6 +33,26 @@ For more info, please see [MIT license](https://github.com/extracts/mac-scriptin
 
 ## Release Notes
 
+### v1.5
+
+* The methods which generate Keypoints-style (date) IDs from a date with added millisecond precision now accept input to control the fixed number of milliseconds to be added.
+* Added these new methods:
+  * `readJSONFromFileAtPath()`
+  * `readJSONFromString()`
+  * `pdfAnnotationInfo()`
+  * `colorForAnnotation()`
+  * `annotationText()`
+  * `annotationBoundsByLine()`
+  * `makeNSRect()`
+  * `dateFromPDFDate()`
+  * `dateFromNSDate()`
+  * `colorNameForColor()`
+  * `colorNameForHue()`
+  * `expandAbbreviatedFilePath()`
+  * `displayNotification()`
+  * `displayMessage()`
+  * `flattenList()`
+
 ### v1.4
 
 * Fixed issue in `customAttributesAndTagsFromKeypointsNote()` where only custom attributes from the last metadata line were returned.
