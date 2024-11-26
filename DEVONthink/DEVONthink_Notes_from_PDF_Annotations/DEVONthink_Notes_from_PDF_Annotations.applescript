@@ -1,32 +1,46 @@
 -- DEVONthink Notes from PDF Annotations
--- version 1.2, licensed under the MIT license
+-- version 1.3, licensed under the MIT license
 
 -- by Matthias Steffens, keypoints.app, mat(at)extracts(dot)de
 
 -- For each of the PDFs selected in DEVONthink, this script will iterate over its contained PDF annotations
--- and create or update a Markdown record for each markup or text annotation.
+-- and create or update a Markdown record for each markup, text or free text annotation.
 
--- This script requires macOS 10.14 (High Sierra) or greater, the KeypointsScriptingLib v1.4 or greater,
+-- This script can also be triggered via a DEVONthink smart rule to automatically extract PDF annotations
+-- from imported/saved PDFs (see Setup & Usage below).
+
+-- This script requires macOS 10.14 (High Sierra) or greater, the KeypointsScriptingLib v1.5 or greater,
 -- and DEVONthink Pro v3.x or greater (DEVONthink Pro v3.9 or greater will be required to have deep
 -- links to PDF annotations work correctly).
 
 
 -- Setup:
 
--- -- Before running the script, do this once: Adjust the DEVONthink label <-> color mapping via the properties
---     `label1` ... `label7` below and save this script again. If saving generates an error, please try again with
---     Script Debugger (which has a free "lite" mode): https://latenightsw.com/sd8/download/
+-- -- Before running the script, do this once: Adjust the DEVONthink label <-> color mapping via the
+--     properties `label1` ... `label7` below and save this script again. If saving generates an error, please
+--     try again with Script Debugger (which has a free "lite" mode): https://latenightsw.com/sd8/download/
 
--- -- You may also want to check the other properties below. These allow to customize the script, e.g. to enable
---     updating of existing notes, or automatic fetching of BibTeX data.
+-- -- You may also want to check the other properties below. These allow to customize the script, e.g. to
+--     enable updating of existing notes, or automatic fetching of BibTeX data.
 
--- -- Copy the script to a suitable place, like the DEVONthink script folder, or the system's script menu folder.
---     For a guide on how to enable and use the system's script menu, see:
---     https://iworkautomation.com/numbers/script-menu.html
+-- -- Copy the script to a suitable place, like the DEVONthink script folder. To open this folder, activate
+--     DEVONthink, select the Scripts menu(*) and choose "Open Scripts Folder". This will open the DEVONthink
+--     Scripts folder in the Finder. It is located at `~/Library/Application Scripts/com.devon-technologies.think3/Menu`.
+--     (*): https://download.devontechnologies.com/download/devonthink/3.8.2/DEVONthink.help/Contents/Resources/pgs/menus-scripts.html
+
+--     Alternatively, you can copy the script to the system's script menu folder. For a guide on how to enable
+--     and use the system's script menu, see: https://iworkautomation.com/numbers/script-menu.html
 
 -- -- If you've placed your script into the DEVONthink script folder, you may also append a keyboard shortcut
---     description (like `___Command-Shift-Alt-A`) to the script's name. After restarting DEVONthink, you should
---     be able to run your script via the specified keyboard shortcut.
+--     description (like `___Command-Shift-Alt-A`) to the script's name. After restarting DEVONthink, you
+--     should be able to run your script via the specified keyboard shortcut.
+
+-- -- If you want this script to be triggered by a DEVONthink smart rule instead, please move the script into
+--     the DEVONthink smart rule scripts folder at `~/Library/Application Scripts/com.devon-technologies.think3/Smart Rules`.
+--     Then, in your smart rule, add an "Execute Script" action and choose "External" as well as your script
+--     from the dropdown menus. For more info on DEVONthink smart rules and assigning scripts, see:
+--     https://download.devontechnologies.com/download/devonthink/3.8.2/DEVONthink.help/Contents/Resources/pgs/automation-smartrules.html
+--     https://download.devontechnologies.com/download/devonthink/3.8.2/DEVONthink.help/Contents/Resources/pgs/automation-smartrulescripts.html 
 
 
 -- Usage:
@@ -43,6 +57,10 @@
 
 -- -- Note that you can run the script multiple times with the same PDF record(s) selected in DEVONthink.
 --     On a subsequent run of the script, all notes that were newly created (or updated) will be selected.
+
+-- -- As an alternative, this script can be run automatically from within a DEVONthink smart rule that's,
+--     for example, triggered by an Import or Save event. Note that, when triggered by a smart rule, script
+--     feedback will be reported via a notification, and created/updated notes won't get selected.
 
 
 -- Discussion & Help:
@@ -130,7 +148,6 @@
 -- Ideas for Improvement:
 
 -- allow name & content of created Markdown records to be generated via a template (e.g., to allow for custom YAML headers)
--- allow the script to be called by a smart rule (displaying feedback on completion in a notification and w/o selecting any updated records)
 -- offer a configuration option to specify which metadata shall get exported into which custom metadata field
 -- if just some DEVONthink groups were selected, allow to get all contained PDFs and process these
 -- allow to optionally look-up the PDF file in a reference manager like Bookends and auto-fetch citekey & citation info from there
@@ -299,41 +316,53 @@ property pageMargin : 20
 
 property createdNotesCount : 0
 property updatedNotesCount : 0
+property pdfCount : 0
 
 -- The "KeypointsScriptingLib.scptd" scripting library provides utility methods for this script.
 -- It can be made available to this script by copying it into a "Script Libraries" folder inside
 -- the "Library" folder that's within your Home folder.
 -- see https://github.com/extracts/mac-scripting/tree/master/ScriptingLibraries/KeypointsScriptingLib
-use KeypointsLib : script "KeypointsScriptingLib" -- v1.4 or greater required
+use KeypointsLib : script "KeypointsScriptingLib" -- v1.5 or greater required
 
-use framework "/System/Library/Frameworks/AppKit.framework"
-use framework "/System/Library/Frameworks/Quartz.framework"
-use scripting additions
+-- NOTE: In order to allow this script to be executed by a DEVONthink smart rule (which requires
+-- pure AppleScript code), all AppleScriptObjC code has to be run from the included scripting library,
+-- and use statements such as `use framework "Foundation"` and `use scripting additions` must
+-- not be used. For a workaround to this, see:
+-- https://discourse.devontechnologies.com/t/solution-to-the-problem-of-using-the-applescript-foundation-framework-in-smart-rules/78575
 
 
--- Main handler.
+-- This method gets triggered when executing this script via a DEVONthink smart rule.
+-- @param theRecords List of records as defined by the calling smart rule.
+on performSmartRule(theRecords)
+	set annotatedPDFs to my onlyDEVONthinkPDFsWithPDFAnnotations(theRecords)
+	
+	if annotatedPDFs is not {} then
+		set updatedRecords to my processPDFs(annotatedPDFs)
+	end if
+	
+	-- display feedback (number of PDFs processed and notes created/updated) as a notification
+	set completionDetails to "Processed PDFs: " & pdfCount & linefeed & "Created notes: " & createdNotesCount & "  |  " & "Updated notes: " & updatedNotesCount
+	KeypointsLib's displayNotification(completionDetails, "Finished Import of PDF Annotations", "")
+end performSmartRule
+
+
+-- This method gets triggered when executing this script manually. It will process all PDFs
+-- that are currently selected in DEVONthink. If there's currently no selection in DEVONthink
+-- (or if the selection contains no PDFs with PDF annotations) presents an error alert and
+-- aborts the script.
 on run
 	-- DEVONthink must be running for this script to work
 	if not my checkAppsRunning() then return
 	
-	KeypointsLib's setupProgress("Creating Markdown notes for annotations in selected PDFs")
-	
 	-- only deal with currently selected PDFs that contain PDF annotations
-	set pdfRecords to my selectedDEVONthinkPDFsWithPDFAnnotations()
+	tell application id "DNtp"
+		set selRecords to (selection as list)
+		set annotatedPDFs to my onlyDEVONthinkPDFsWithPDFAnnotations(selRecords)
+		
+		if annotatedPDFs is {} then KeypointsLib's displayError("No PDF(s) with PDF annotations selected!", "Please open DEVONthink and select some PDF(s) with PDF annotations.", 15, true)
+	end tell
 	
-	-- initialize progress reporting
-	set createdNotesCount to 0
-	set updatedNotesCount to 0
-	set pdfCount to count of pdfRecords
-	KeypointsLib's setTotalStepsForProgress(pdfCount)
-	
-	-- process PDF annotations for each PDF
-	repeat with i from 1 to pdfCount
-		set pdfRecord to item i of pdfRecords
-		tell application id "DNtp" to set pdfFilename to filename of pdfRecord
-		KeypointsLib's updateProgress(i, "Processing PDF " & i & " of " & pdfCount & " (\"" & pdfFilename & "\").")
-		set updatedRecords to my createDEVONthinkNotesForPDF(pdfRecord)
-	end repeat
+	set updatedRecords to my processPDFs(annotatedPDFs)
 	
 	-- select records that were created or updated
 	if selectUpdatedRecords is true and updatedRecords is not {} then
@@ -346,10 +375,40 @@ on run
 	-- display a dialog with feedback (number of PDFs processed and notes created/updated)
 	tell application id "DNtp"
 		activate
-		display dialog "Processed PDFs: " & pdfCount & linefeed & "Created notes: " & createdNotesCount & linefeed & "Updated notes: " & updatedNotesCount ¬
-			with title "Finished Import of PDF Annotations" with icon 2 buttons {"OK"} default button "OK"
+		set completionDetails to "Processed PDFs: " & pdfCount & linefeed & "Created notes: " & createdNotesCount & linefeed & "Updated notes: " & updatedNotesCount
+		KeypointsLib's displayMessage("Finished Import of PDF Annotations", completionDetails, false, 0)
 	end tell
 end run
+
+
+-- Main method which iterates over the given PDF records and processes any contained
+-- PDF annotations.
+-- Returns a list with all records that were actually updated. I.e., if a PDF annotation did
+-- already have a corresponding Markdown record in DEVONthink which wasn't updated
+-- (since its text content & properties were already up-to-date), it won't get included in
+-- the returned list.
+-- @param pdfRecords The DEVONthink PDF records that shall be processed.
+on processPDFs(pdfRecords)
+	KeypointsLib's setupProgress("Creating Markdown notes for PDF annotations")
+	
+	-- initialize progress reporting
+	set createdNotesCount to 0
+	set updatedNotesCount to 0
+	set pdfCount to count of pdfRecords
+	KeypointsLib's setTotalStepsForProgress(pdfCount)
+	
+	-- process PDF annotations for each PDF
+	set allUpdatedRecords to {}
+	repeat with i from 1 to pdfCount
+		set pdfRecord to item i of pdfRecords
+		tell application id "DNtp" to set pdfFilename to filename of pdfRecord
+		KeypointsLib's updateProgress(i, "Processing PDF " & i & " of " & pdfCount & " (\"" & pdfFilename & "\").")
+		set updatedRecords to my createDEVONthinkNotesForPDF(pdfRecord)
+		if updatedRecords is not {} then copy updatedRecords to end of allUpdatedRecords
+	end repeat
+	
+	return KeypointsLib's flattenList(allUpdatedRecords)
+end processPDFs
 
 
 -- Checks if DEVONthink Pro is running.
@@ -366,29 +425,26 @@ on checkAppsRunning()
 end checkAppsRunning
 
 
--- Returns all PDF records from the records selected in DEVONthink that contain some
--- PDF annotations. If there's currently no selection in DEVONthink (or if the selection
--- contains no PDFs with PDF annotations) presents an error alert and aborts the script.
-on selectedDEVONthinkPDFsWithPDFAnnotations()
+-- Returns all PDF records from the given DEVONthink records that contain some
+-- PDF annotations.
+-- @param theRecords The DEVONthink records that shall be processed.
+on onlyDEVONthinkPDFsWithPDFAnnotations(theRecords)
 	set annotatedPDFs to {}
 	
 	tell application id "DNtp"
-		set theRecords to (selection as list)
 		repeat with theRecord in theRecords
 			if (type of theRecord is PDF document) and (annotation count of theRecord > 0) then
 				copy theRecord to end of annotatedPDFs
 			end if
 		end repeat
-		
-		if annotatedPDFs is {} then KeypointsLib's displayError("No PDF(s) with PDF annotations selected!", "Please open DEVONthink and select some PDF(s) with PDF annotations.", 15, true)
 	end tell
 	
 	return annotatedPDFs
-end selectedDEVONthinkPDFsWithPDFAnnotations
+end onlyDEVONthinkPDFsWithPDFAnnotations
 
 
 -- Iterates over the given PDF's contained PDF annotations and creates a DEVONthink
--- record for each markup or text annotation (if it doesn't exist yet).
+-- record for each markup, text or free text annotation (if it doesn't exist yet).
 -- Returns a list with all records that were actually updated. I.e., if a PDF annotation did
 -- already have a corresponding Markdown record in DEVONthink which wasn't updated
 -- (since its text content & properties were already up-to-date), it won't get included in
@@ -441,8 +497,17 @@ on createDEVONthinkNotesForPDF(pdfRecord)
 		end if
 	end if
 	
+	-- set KeypointsLib's properties which control some of its annotation-related methods
+	set KeypointsLib's lineWidthEnlargement to lineWidthEnlargement
+	set KeypointsLib's lineHeightEnlargement to lineHeightEnlargement
+	set KeypointsLib's redColorMapping to redColorMapping -- KeypointsLib's other individual color mappings don't need to be set explicitly
+	set KeypointsLib's colorMappings to colorMappings
+	set KeypointsLib's respectMultiColumnPDFLayouts to respectMultiColumnPDFLayouts
+	set KeypointsLib's maxTextColumns to maxTextColumns
+	set KeypointsLib's pageMargin to pageMargin
+	
 	-- assemble info for all PDF annotations as a list of property records
-	set {pdfAnnotationsList, sourceDOI} to my pdfAnnotationInfo(pdfPath, pdfurl, sourceDOI, sourceCitekey)
+	set {pdfAnnotationsList, sourceDOI} to KeypointsLib's pdfAnnotationInfo(pdfPath, pdfurl, sourceDOI, sourceCitekey)
 	
 	-- sort all PDF annotations so that they are listed in the order they appear in the document & on the page
 	-- NOTE: by default, PDF annotations seem to be ordered by page & creation date (?)
@@ -484,16 +549,14 @@ on createDEVONthinkNotesForPDF(pdfRecord)
 	
 	set updatedRecords to {}
 	
-	-- loop over each markup or text annotation in the PDF and create/update its corresponding Markdown record
+	-- loop over each markup, text or free text annotation in the PDF and create/update its corresponding Markdown record
 	repeat with pdfAnnotation in pdfAnnotationsList
 		set aComment to (pdfAnnotation's comment)
-		if aComment is (current application's NSNull's |null|) then set aComment to missing value
 		if aComment is not missing value then
 			set aComment to my preprocessAnnotationComment(aComment as string)
 		end if
 		
 		set annotText to (pdfAnnotation's annotText)
-		if annotText is (current application's NSNull's |null|) then set annotText to missing value
 		if annotText is not missing value then set annotText to annotText as string
 		
 		set aPageLabel to (pdfAnnotation's pageLabel)
@@ -504,18 +567,23 @@ on createDEVONthinkNotesForPDF(pdfRecord)
 		-- assemble record name from annotation text, comment & page label
 		set recordName to my recordNameFromPDFAnnotationData(annotText, aComment, aPageLabel)
 		
+		-- to ensure stable Keypoints IDs, the last part of the annotation's sort identifier string (like "2-1-125"),
+		-- i.e. its position from top, will be used to form the fixed "milliseconds" part when creating a Keypoints ID
+		set annotSortString to (pdfAnnotation's sortString) as string
+		set positionFromTop to (pdfAnnotation's positionFromTop) as string
+		set centiSeconds to text -2 thru -1 of ("0" & positionFromTop)
+		
 		-- record modification & creation date
+		set recordCreationDate to (pdfAnnotation's createdDate) as date
 		set recordModificationDate to (pdfAnnotation's modifiedDate) as date
 		if recordModificationDate is not missing value then
-			set recordCreationDate to recordModificationDate
-			set recordAliases to KeypointsLib's keypointsIDForDate(recordCreationDate)
+			set recordAliases to KeypointsLib's keypointsIDForDate(recordCreationDate, centiSeconds)
 		end if
 		
 		set recordURL to (pdfAnnotation's deepLink) as string
 		
 		-- record metadata
 		set annotType to (pdfAnnotation's annotType) as string
-		set annotSortString to (pdfAnnotation's sortString) as string
 		set recordMetadata to bibMetadata & {pdfannotations:folderURL, annotationType:annotType, annotationOrder:annotSortString}
 		
 		set aUserName to (pdfAnnotation's userName)
@@ -569,97 +637,6 @@ on createDEVONthinkNotesForPDF(pdfRecord)
 	
 	return updatedRecords
 end createDEVONthinkNotesForPDF
-
-
--- For the given PDF, returns a list of records (where each record contains info about
--- one of its PDF annotations) as well as any DOI extracted from the PDF metadata.
--- @param pdfPath The POSIX path to the PDF file on disk.
--- @param pdfurl The `x-devonthink-item://...` URL of the corresponding PDF record
--- in DEVONthink.
--- @param sourceDOI The DOI of the publication represented by the PDF (may be
--- empty).
--- @param sourceCitekey The citekey of the publication represented by the PDF (may
--- be empty).
--- Credits: this method was inspired by a script by mdbraber
--- See https://discourse.devontechnologies.com/t/stream-annotations-from-your-pdf-reading-sessions-with-devonthink/70727/30
-on pdfAnnotationInfo(pdfPath, pdfurl, sourceDOI, sourceCitekey)
-	set pdfDoc to current application's PDFDocument's alloc()'s initWithURL:(current application's |NSURL|'s fileURLWithPath:pdfPath)
-	
-	-- if there's no given DOI yet, try to get any DOI from PDF metadata or first PDF page
-	if sourceDOI is "" then
-		set pdfDOI to KeypointsLib's doiFromPDF(pdfPath, pdfDoc, true)
-		if pdfDOI is not "" then
-			set sourceDOI to pdfDOI
-		end if
-	end if
-	
-	-- iterate over each PDF page and process its annotations
-	set pdfAnnotationsArray to current application's NSMutableArray's new()
-	set columnID to 1
-	repeat with i from 0 to ((pdfDoc's |pageCount|()) - 1) -- PDF pages are 0-based in PDFKit
-		set pdfPage to (pdfDoc's pageAtIndex:i)
-		set {pageWidth, pageHeight} to item 2 of (pdfPage's boundsForBox:(current application's kPDFDisplayBoxMediaBox))
-		set columnWidth to (pageWidth - (2 * pageMargin)) / maxTextColumns
-		set pageLabel to pdfPage's label()
-		set pdfannotations to pdfPage's annotations()
-		
-		repeat with pdfAnnotation in pdfannotations
-			set annotType to pdfAnnotation's |type|()
-			
-			if annotType is in {"Highlight", "StrikeOut", "Underline", "Squiggly", "Text", "FreeText"} then
-				if annotType is in {"Highlight", "StrikeOut", "Underline"} then
-					set markupType to pdfAnnotation's markupType()
-				else
-					set markupType to missing value
-				end if
-				
-				-- TODO: parse & set key/value pairs from dictionary returned by `annotationKeyValues`?
-				--            - `/CreationDate` (example: `/CreationDate:"D:20240810112845Z"`), set by DTTG but not DT/PDFKit on Mac?
-				--            - `/Name` if it contains something more concrete than just "/Note" (example: `/Name:"/Note"`)
-				--set annotKeyDict to pdfAnnotation's annotationKeyValues()
-				
-				-- get the annotation's color
-				set {annotColor, annotColorName} to colorForAnnotation(pdfAnnotation)
-				
-				set annotUserName to pdfAnnotation's userName()
-				set annotModDate to pdfAnnotation's modificationDate()
-				
-				set annotBounds to pdfAnnotation's |bounds|()
-				set {annotOriginX, annotOriginY} to first item of annotBounds -- origin
-				set {annotWidth, annotHeight} to second item of annotBounds -- size
-				
-				-- calculate a string identifier that can be used for sorting (so that annotations can be listed in the order they appear in the text of a page)
-				-- NOTE: including a `columnID` allows to better sort annotations in multi-column PDF articles
-				set annotTopMarginFromTop to pageHeight - (annotOriginY + annotHeight) -- in page space, the origin lies at the lower-left corner of the PDF page
-				if respectMultiColumnPDFLayouts is true then set columnID to 1 + (round (annotOriginX / columnWidth) rounding down) -- the identifier of the column containing this annotation's origin
-				set sortString to "" & i + 1 & "-" & columnID & "-" & ¬
-					(round annotTopMarginFromTop rounding as taught in school)
-				
-				-- get the annotation's highlighted text
-				if annotType is in {"Highlight", "StrikeOut", "Underline", "Squiggly"} then
-					set quadPoints to pdfAnnotation's quadrilateralPoints()
-					set boundsByLine to my annotationBoundsByLine(quadPoints, annotBounds)
-					set annotText to my annotationText(pdfPage, boundsByLine)
-				else
-					set annotText to ""
-				end if
-				
-				set annotComment to pdfAnnotation's |contents|()
-				
-				-- create a deep link for this annotation
-				set annotURL to pdfurl & ¬
-					"?page=" & i & ¬
-					"&annotation=" & annotType & ¬
-					"&x=" & (annotOriginX as integer) & ¬
-					"&y=" & (annotOriginY as integer)
-				
-				(pdfAnnotationsArray's addObject:{citekey:sourceCitekey, page:i, pageLabel:pageLabel, annotType:annotType, markupType:markupType, annotColor:annotColor, annotColorName:annotColorName, userName:annotUserName, modifiedDate:annotModDate, annotText:annotText, comment:annotComment, deepLink:annotURL, sortString:sortString})
-			end if
-		end repeat
-	end repeat
-	
-	return {pdfAnnotationsArray as list, sourceDOI}
-end pdfAnnotationInfo
 
 
 -- Assembles the content of a Markdown record from the given PDF annotation text
@@ -1043,165 +1020,6 @@ on labelIndexForColorName(colorName)
 	
 	return recordLabelIndex
 end labelIndexForColorName
-
-
--- Returns the name of the approximate color (like "red", "blue", "green", etc) for the
--- given hue degree.
--- @param hueDegree A color's hue component given as a degree (0-359) of the hue 
--- in the HSB (hue, saturation, brightness) color scheme.
-on colorNameForHue(hueDegree)
-	set colorName to ""
-	
-	repeat with colorMapping in colorMappings
-		if hueDegree ≥ colorMapping's lowerHueLimit and hueDegree ≤ colorMapping's upperHueLimit then
-			set colorName to colorMapping's colorName
-		end if
-	end repeat
-	if colorName is "" and (hueDegree ≥ colorMapping's lowerHueLimit or hueDegree ≤ colorMapping's upperHueLimit) then
-		set colorName to redColorMapping's colorName
-	end if
-	
-	return colorName
-end colorNameForHue
-
-
--- Attempts to extract the annotation's text from its line-based bounds rectangles.
--- @param boundsByLine List of line-based bounds, where each bounds rectangle
--- specifies the bounding box of an annotation's individual line in page space.
-on annotationText(pdfPage, boundsByLine)
-	set textByLine to {}
-	
-	repeat with theBounds in boundsByLine
-		set pdfSelection to (pdfPage's selectionForRect:theBounds)
-		set lineText to pdfSelection's |string|()
-		
-		if lineText is not missing value and lineText is not "" then
-			-- replace any trailing whitespace or "\n" at the end of a line with a single space
-			set lineText to KeypointsLib's regexReplace(lineText as string, "(\\s+|\\\\n)$", " ")
-			
-			-- assume that a hyphen (and optional space) at the end of a line indicates a word hyphenation
-			-- NOTE: while this assumption is often correct, it's not always true so it may incorrectly merge
-			--           hyphenated words
-			set lineText to KeypointsLib's regexReplace(lineText, "- $", "")
-			
-			copy lineText to end of textByLine
-		end if
-	end repeat
-	
-	return KeypointsLib's mergeTextItems(textByLine, "")
-end annotationText
-
-
--- Return's the annotation's color & approximate color name.
--- Note that the actual return value is a list with two items with the first item being
--- the annotation's color (specified as a NSColor object) and the second item being
--- the color's approximate color name (like "red", "blue", "green", etc):
--- `{annotColor, annotColorName}`
-on colorForAnnotation(pdfAnnotation)
-	if pdfAnnotation is missing value then return {missing value, ""}
-	
-	set annotColor to missing value
-	set annotColorName to ""
-	set annotType to pdfAnnotation's |type|()
-	set annotKeyDict to pdfAnnotation's annotationKeyValues()
-	
-	if (annotType as string) is in {"FreeText"} then
-		set defaultStyle to (annotKeyDict's valueForKey:"/DS") as string -- e.g.: NSString "font-family: Helvetica; font-size: 12pt; color: #FF4015"
-		if defaultStyle is not missing value then
-			set hexColorString to KeypointsLib's regexMatch(defaultStyle, "#[0-9A-F]{6}")
-			if hexColorString is not "" then
-				set {theRed, theGreen, theBlue} to (KeypointsLib's RGBColorFromHexColor:hexColorString)
-				set annotColor to (current application's NSColor's colorWithRed:theRed / 255 green:theGreen / 255 blue:theBlue / 255 alpha:1.0)
-			end if
-		else -- if "/DS" isn't available fallback to "/DA"
-			set defaultAppearance to (annotKeyDict's valueForKey:"/DA") as string -- e.g.: NSString "/Helvetica 12 Tf 1.000 0.251 0.082 rg"
-			if defaultAppearance is not missing value then
-				set colorRegex to ".*? (\\d+\\.\\d+) (\\d+\\.\\d+) (\\d+\\.\\d+).*"
-				if (KeypointsLib's regexMatch(defaultAppearance, colorRegex)) is not "" then
-					set theRed to KeypointsLib's regexReplace(defaultAppearance, colorRegex, "$1")
-					set theGreen to KeypointsLib's regexReplace(defaultAppearance, colorRegex, "$2")
-					set theBlue to KeypointsLib's regexReplace(defaultAppearance, colorRegex, "$3")
-					set annotColor to (current application's NSColor's colorWithRed:theRed green:theGreen blue:theBlue alpha:1.0)
-				end if
-			end if
-		end if
-	else
-		set annotColor to pdfAnnotation's |color|()
-	end if
-	
-	if annotColor is not missing value then
-		if annotColor's colorSpace is not (current application's NSColorSpace's deviceRGBColorSpace()) then
-			set annotColor to (annotColor's colorUsingColorSpace:(current application's NSColorSpace's deviceRGBColorSpace()))
-		end if
-		
-		-- approximate the name of the annotation's color via the degree of the hue in the HSB (hue, saturation, brightness) color scheme
-		set hueDegree to round ((annotColor's hueComponent() as number) * 360) rounding as taught in school
-		set annotColorName to my colorNameForHue(hueDegree)
-	end if
-	
-	return {annotColor, annotColorName}
-end colorForAnnotation
-
-
--- Converts a list of quadrilateral points to a list of line-based bounds, where each bounds
--- rectangle specifies the bounding box of an annotation's individual line in page space.
--- @param quadPoints List of quadrilateral points (as obtained by `pdfAnnotation's quadrilateralPoints()`,
--- with each point wrapped as NSValue object) where each quadrilateral (i.e., a group of four consecutive
--- points ordered in Z-form {topLeft, topRight, bottomLeft, bottomRight} so that points with higher
--- y-values come first) encircles a line of text to be highlighted. The coordinates of each point are relative
--- to the bound’s origin of the markup annotation.
--- @param annotationBounds The bounding box for the annotation in page space (which is a 72 dpi
--- coordinate system with the origin at the lower-left corner of the PDF page), as obtained by
--- `pdfAnnotation's |bounds|()`.
-on annotationBoundsByLine(quadPoints, annotationBounds)
-	set theOrigin to first item of annotationBounds -- a point specified as a list of x/y positions: {xPos, YPos}
-	set boundsByLine to {}
-	set maxQuadCount to (count of quadPoints) / 4
-	set quadCount to 1
-	
-	-- iterate over each quadrilateral (4 points: topLeft, topRight, bottomLeft, bottomRight) representing an
-	-- annotation line and get its bounds in page space
-	repeat maxQuadCount times
-		-- get the top left & bottom right quad points for this annotation line
-		set topLeftPoint to (item quadCount of quadPoints)'s pointValue()
-		set bottomRightPoint to (item (quadCount + 3) of quadPoints)'s pointValue()
-		
-		-- convert each quad point (whose coordinates are relative to the bound’s origin of the markup
-		-- annotation) to page space (where the origin lies at the lower-left corner of the PDF page)
-		-- NOTE: w/o the adjustment of values, the rectangle would be too small to match underlying text
-		set x of topLeftPoint to (x of topLeftPoint) + (first item of theOrigin) - lineWidthEnlargement
-		set y of topLeftPoint to (y of topLeftPoint) + (second item of theOrigin) + lineHeightEnlargement
-		
-		set x of bottomRightPoint to (x of bottomRightPoint) + (first item of theOrigin) + lineWidthEnlargement
-		set y of bottomRightPoint to (y of bottomRightPoint) + (second item of theOrigin) - lineHeightEnlargement
-		
-		-- create a bounds rectangle (specified by origin {x,y} & size {width,height}) for this annotation line
-		set lineBounds to my makeNSRect({{x of topLeftPoint, y of topLeftPoint}, {x of bottomRightPoint, y of bottomRightPoint}})
-		copy lineBounds to end of boundsByLine
-		
-		set quadCount to quadCount + 4
-	end repeat
-	
-	return boundsByLine
-end annotationBoundsByLine
-
-
--- Takes a a rectangle specified via its top left & bottom right points (given as a list of lists:
--- {{topLeftX, topLeftY}, {bottomRightX, bottomRightY}}) and converts it to a bounds rectangle
--- given as a record with `origin` & `size` properties each containing again a record:
--- {origin:{x:topLeftX, y:topLeftY}, |size|:{width:bottomRightX-topLeftX, height:bottomRightY-topLeftY}} 
--- Credits: by Takaaki Naganoya, Piyomaru Software (see http://piyocast.com/as/archives/643)
-on makeNSRect(aList as list)
-	try
-		copy aList to {{x1, y1}, {x2, y2}}
-		set xWidth to (x2 - x1)
-		set yHeight to (y2 - y1) -- TODO: doesn't this create a negative height? use `y1 - y2` instead?
-		set a1Rect to {origin:{x:x1, y:y1}, |size|:{width:xWidth, height:yHeight}}
-		return a1Rect
-	on error
-		return missing value
-	end try
-end makeNSRect
 
 
 -- This method serves as a hook which gets called for every annotation with an annotation comment.

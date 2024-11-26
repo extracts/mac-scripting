@@ -18,6 +18,8 @@ Your comment about this annotation.
 
 If a DOI was found for the PDF, the script can also fetch its bibliographic metadata and set the custom metadata and/or Finder comment of the Markdown records & their group accordingly.
 
+Starting with v1.3, the script can be triggered from a DEVONthink smart rule. This allows to automatically extract PDF annotations from imported or updated PDFs.
+
 For further details, please see the notes at the top of the script.
 
 
@@ -30,6 +32,8 @@ After unpacking the script, copy it to a suitable place, like the DEVONthink Scr
 Alternatively, you could also copy the script to the system's Script menu folder. For an illustrated guide which describes how to enable and use the system's script menu, please see [iworkautomation.com: The script menu](https://iworkautomation.com/numbers/script-menu.html).
 
 If you've placed your script into the DEVONthink Scripts folder, you may also append a keyboard shortcut description (like `___Command-Shift-Alt-A`) to the script's name. You should then be able to run your script by pressing the specified keyboard shortcut.
+
+If you want the script to be triggered by a DEVONthink smart rule instead, please move the script into the DEVONthink smart rule scripts folder at `~/Library/Application Scripts/com.devon-technologies.think3/Smart Rules`. Then, in your smart rule, add an "Execute Script" action and choose "External" as well as your script from the dropdown menus. For more info, see the DEVONthink help on [Smart Rules](https://download.devontechnologies.com/download/devonthink/3.8.2/DEVONthink.help/Contents/Resources/pgs/automation-smartrules.html) and [Smart Rule Scripts](https://download.devontechnologies.com/download/devonthink/3.8.2/DEVONthink.help/Contents/Resources/pgs/automation-smartrulescripts.html).
 
 
 ## Setup
@@ -49,6 +53,8 @@ After the script has finished, you'll see a dialog with feedback on how many PDF
 
 Note that you can run the script multiple times with the same PDF record(s) selected in DEVONthink. On a subsequent run of the script, all notes that were newly created (or updated) will be selected.
 
+If the script was executed automatically from within a DEVONthink smart rule (which, in turn, may have been triggered by an Import or Save event), script feedback will be reported via a notification, and created/updated notes won't get selected.
+
 
 ## Discussion & Help:
 
@@ -60,7 +66,7 @@ If you have further questions or issues w.r.t. this script, or want to discuss o
 
 ## Requirements
 
-This script requires macOS 10.14 (High Sierra) or greater, the [KeypointsScriptingLib](https://github.com/extracts/mac-scripting/tree/master/ScriptingLibraries/KeypointsScriptingLib) v1.4 or greater,
+This script requires macOS 10.14 (High Sierra) or greater, the [KeypointsScriptingLib](https://github.com/extracts/mac-scripting/tree/master/ScriptingLibraries/KeypointsScriptingLib) v1.5 or greater,
 and [DEVONthink Pro](https://www.devontechnologies.com/apps/devonthink) v3.x or greater (DEVONthink Pro v3.9 or greater will be required to have deep links to PDF annotations work correctly).
 
 
@@ -83,6 +89,13 @@ For more info, please see [MIT license](https://github.com/extracts/mac-scriptin
 
 
 ## Release Notes
+
+### v1.3
+
+* The script can now be triggered from a DEVONthink smart rule. This allows to automatically extract PDF annotations from imported or updated PDFs.
+* If available, the script now extracts a PDF annotation's creation date and sets the creation date of the created Markdown record accordingly.
+* When recreating a Markdown record from its PDF annotation, the record's ID-like alias now remains stable.
+* Fixed an issue where, upon completion, the script would only select created/updated Markdown records from the PDF that got processed last.
 
 ### v1.2
 
