@@ -780,7 +780,7 @@ on pdfAnnotationInfo(pdfPath, pdfurl, sourceDOI, sourceCitekey)
 				-- get the annotation's creator name as well as its modification & creation dates
 				set annotUserName to pdfAnnotation's userName()
 				set annotModDate to pdfAnnotation's modificationDate()
-				if annotModDate is (current application's NSNull's |null|) then set annotModDate to current application's NSDate's |date|() -- use current date if no modification date is specified
+				if annotModDate is missing value or annotModDate is (current application's NSNull's |null|) then set annotModDate to current application's NSDate's |date|() -- use current date if no modification date is specified
 				
 				-- parse & set key/value pairs from dictionary returned by `annotationKeyValues`
 				-- TODO: parse `/Name` if it contains something more concrete than just "/Note" (example: `/Name:"/Note"`)
