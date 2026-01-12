@@ -4,7 +4,7 @@ Exports all records selected in your frontmost DEVONthink database window as ind
 
 For each created note, the script transfers a rich set of metadata, like the record's tags, flag, rating, color & label as well as annotation info and any bibliographic metadata. In addition, the script will add deep links to point back to the corresponding record in DEVONthink (and, for annotation notes, to the accompanying PDF annotation & file). Conversion of Wiki links to Tinderbox links is also supported.
 
-![Screenshot of Tinderbox notes created by the 'DEVONthink Notes to Tinderbox' script](https://github.com/extracts/mac-scripting/tree/master/DEVONthink/DEVONthink_Notes_To_Tinderbox/Screenshots/20260112-DEVONthink_Notes_To_Tinderbox-02-B.png)
+![Screenshot of Tinderbox notes created by the 'DEVONthink Notes to Tinderbox' script](https://raw.githubusercontent.com/extracts/mac-scripting/refs/heads/master/DEVONthink/DEVONthink_Notes_To_Tinderbox/Screenshots/20260112-DEVONthink_Notes_To_Tinderbox-02-B.png)
 
 The script was developed to export annotation notes that have been created in DEVONthink via the [DEVONthink Notes from PDF Annotations](https://github.com/extracts/mac-scripting/tree/master/DEVONthink/DEVONthink_Notes_from_PDF_Annotations) script. However, the script should also work with any kind of DEVONthink record.
 
