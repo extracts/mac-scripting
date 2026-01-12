@@ -28,6 +28,8 @@ Before running the script, do this once: Open the script in Script Editor and ad
 
 You may also want to check out some of the other script properties as these allow to customize the script, e.g. to adjust the note name formats, or to specify one of your existing prototypes for the created notes.
 
+For Tinderbox, please add the "Markdown" & "Reference" [prototypes](https://atbref.com/atbref11/index/Misc_User_Interface_Aspects/Built-in_Prototypes.html) (via the "File > Built-In Prototypes" menu) to the Tinderbox document that will receive the exported notes.
+
 
 ## Usage
 
