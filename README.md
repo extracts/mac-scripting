@@ -32,6 +32,10 @@ A sample script for Bookends which shows how to extract information from attachm
 
 Creates individual Markdown notes for annotations contained in PDF(s) that are selected in DEVONthink. The script matches the PDF annotation highlight color to DEVONthink labels, supports markup in PDF annotation notes to set the note's title, flag, rating, tags & custom metadata, can auto-fetch bibliographic metadata, and creates deep links that directly point back to the PDF annotation. [[More Info](https://github.com/extracts/mac-scripting/tree/master/DEVONthink/DEVONthink_Notes_from_PDF_Annotations)] [[Download](https://github.com/extracts/mac-scripting/raw/master/DEVONthink/DEVONthink_Notes_from_PDF_Annotations/DEVONthink_Notes_from_PDF_Annotations.scptd.zip)]
 
+#### DEVONthink Notes to Tinderbox
+
+Exports all selected DEVONthink records as individual notes to Tinderbox. The script also transfers the record's tags, flag, rating, color & label as well as some custom metadata, it can create Tinderbox links from Wiki links, and creates deep links that directly point back to the DEVONthink record & PDF annotation. [[More Info](https://github.com/extracts/mac-scripting/tree/master/DEVONthink/DEVONthink_Notes_To_Tinderbox)] [[Download](https://github.com/extracts/mac-scripting/raw/master/DEVONthink/DEVONthink_Notes_To_Tinderbox/DEVONthink_Notes_To_Tinderbox.scptd.zip)]
+
 
 ### Papers 3
 
