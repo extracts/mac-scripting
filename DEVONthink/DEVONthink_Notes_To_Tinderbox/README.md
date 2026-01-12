@@ -44,8 +44,10 @@ Note that you can run the script multiple times for the same DEVONthink record(s
 
 ## Discussion & Help:
 
-If you have further questions or issues w.r.t. this script, or want to discuss or request any features, you may do so here:
+If you have further questions or issues w.r.t. this script, or want to discuss or request any features, you may do so in either of these forums:
 
+- https://discourse.devontechnologies.com/t/exporting-note-records-from-devonthink-to-tinderbox/86044
+- https://forum.eastgate.com/t/exporting-notes-from-devonthink-to-tinderbox/9112
 - https://github.com/extracts/mac-scripting/discussions
 
 
