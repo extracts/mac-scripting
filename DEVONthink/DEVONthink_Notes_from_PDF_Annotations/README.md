@@ -38,7 +38,7 @@ If you want the script to be triggered by a DEVONthink smart rule instead, pleas
 
 ## Setup
 
-Before running the script, do this once: Open the script in Script Editor and adjust the DEVONthink label <-> color mapping via the properties `label1` ... `label7`, then save the script again. If saving generates an error, please try again with [Script Debugger](https://latenightsw.com/sd8/download/) (which has a free "lite" mode).
+Before running the script, do this once: Open the script in Script Editor and adjust the DEVONthink label <-> color mapping via the properties `label1` ... `label7`, then save the script again. If saving generates an error, please try again with [Script Debugger](https://latenightsw.com/sd8/download/) (which is freely available).
 
 You may also want to check out some of the other script properties as these allow to customize the script, e.g. to enable updating of existing notes or automatic fetching of BibTeX data.
 
